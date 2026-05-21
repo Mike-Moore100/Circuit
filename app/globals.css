@@ -956,6 +956,89 @@ body:has(.drawer) .app-main { padding-right: 500px; }
 .contact-source-tag.contact-source-guessed    { background: var(--warning-soft); color: var(--warning); border-color: var(--warning-border); }
 .contact-source-tag.contact-source-inferred   { background: var(--bg-subtle); color: var(--text-subtle); }
 .contact-source-tag.contact-source-source-feed { background: var(--bg-subtle); color: var(--text-subtle); }
+
+/* ============================================================
+   Opportunity Intelligence — drawer section + row attention pill
+   ============================================================ */
+.attention-pill {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 600;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.attention-pill.attention-IMMEDIATE { background: var(--danger-soft);  color: var(--danger);  border-color: var(--danger-border); }
+.attention-pill.attention-HIGH      { background: #fff5e6;             color: #b45309;        border-color: #fde68a; }
+.attention-pill.attention-MEDIUM    { background: var(--info-soft);    color: var(--info);    border-color: var(--info-border); }
+.attention-pill.attention-LOW       { background: var(--bg-muted);     color: var(--text-muted); }
+.attention-pill.attention-IGNORE    { background: var(--bg-subtle);    color: var(--text-subtle); }
+
+.opp-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.opp-score {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.opp-score-value { font-size: 28px; font-weight: 700; color: var(--text); line-height: 1; }
+.opp-score-cap   { font-size: 12px; color: var(--text-subtle); }
+.opp-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.opp-meta-line { font-size: var(--text-xs); color: var(--text-muted); }
+
+.opp-sub-grid {
+  margin-top: var(--space-3);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+.opp-sub {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+.opp-sub-label { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opp-sub-bar {
+  position: relative;
+  height: 4px;
+  background: var(--bg-muted);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.opp-sub-bar .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--text-subtle);
+  transition: width 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.opp-sub-pos .opp-sub-bar .fill     { background: var(--success); }
+.opp-sub-neutral .opp-sub-bar .fill { background: var(--info); }
+.opp-sub-weak .opp-sub-bar .fill    { background: var(--text-subtle); }
+.opp-sub-neg .opp-sub-bar .fill     { background: var(--danger); }
+.opp-sub-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+  color: var(--text);
+}
 .email-type {
   font-size: 10px;
   text-transform: uppercase;

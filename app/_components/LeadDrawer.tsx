@@ -7,6 +7,7 @@ import type {
   LeadEvidenceSummary,
   LeadVerifiedSignal,
 } from '../_lib/dashboardData';
+import type { OpportunityIntelligence } from '../../src/intelligence/intelligenceTypes';
 import { ReviewActions } from './ReviewActions';
 import { LeadReviewActions } from './LeadReviewActions';
 
@@ -17,6 +18,7 @@ interface Props {
   currentReview: string | null;
   contacts: LeadContactBundle;
   evidence: LeadEvidenceSummary | null;
+  intelligence: OpportunityIntelligence | null;
 }
 
 function emailStatusLabel(status: string | null, hasEmail: boolean): string {
@@ -26,6 +28,37 @@ function emailStatusLabel(status: string | null, hasEmail: boolean): string {
   if (!status) return 'extracted';
   if (status === 'guessed') return 'guessed (unverified)';
   return status;
+}
+
+// Small inline bar used by the Opportunity Intelligence section. `inverted`
+// renders the bar in danger-tone (used for trust barrier where higher = worse).
+function SubBar({
+  label,
+  score,
+  inverted,
+}: {
+  label: string;
+  score: number;
+  inverted?: boolean;
+}) {
+  const tone = inverted
+    ? score >= 50
+      ? 'neg'
+      : 'neutral'
+    : score >= 70
+    ? 'pos'
+    : score >= 40
+    ? 'neutral'
+    : 'weak';
+  return (
+    <div className={`opp-sub opp-sub-${tone}`}>
+      <span className="opp-sub-label">{label}</span>
+      <div className="opp-sub-bar">
+        <span className="fill" style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
+      </div>
+      <span className="opp-sub-score">{score}</span>
+    </div>
+  );
 }
 
 function readableSource(url: string | null): string {
@@ -64,7 +97,15 @@ function ReasonRow({ r, kind }: { r: ScoreReason; kind: 'pos' | 'neg' }) {
   );
 }
 
-export function LeadDrawer({ lead, signals, ai, currentReview, contacts, evidence }: Props) {
+export function LeadDrawer({
+  lead,
+  signals,
+  ai,
+  currentReview,
+  contacts,
+  evidence,
+  intelligence,
+}: Props) {
   const positiveReasons = lead.reasons.filter((r) => r.delta >= 0);
   const negativeReasons = [
     ...lead.reasons.filter((r) => r.delta < 0),
@@ -167,6 +208,64 @@ export function LeadDrawer({ lead, signals, ai, currentReview, contacts, evidenc
             })}
           </div>
         </section>
+
+        {intelligence && (
+          <section className="drawer-section">
+            <h3 className="drawer-label">Opportunity intelligence</h3>
+            <div className="opp-summary">
+              <div className="opp-score">
+                <span className="opp-score-value">{intelligence.opportunityScore}</span>
+                <span className="opp-score-cap">/100</span>
+              </div>
+              <div className="opp-meta">
+                <span
+                  className={`attention-pill attention-${intelligence.humanAttentionPriority}`}
+                >
+                  {intelligence.humanAttentionPriority}
+                </span>
+                <span className="opp-meta-line">
+                  {intelligence.likelyProjectType.replace(/_/g, ' ').toLowerCase()} ·{' '}
+                  {intelligence.estimatedProjectComplexity.toLowerCase()} complexity ·{' '}
+                  {intelligence.estimatedCommercialPotential.toLowerCase()} potential
+                </span>
+              </div>
+            </div>
+
+            <div className="opp-sub-grid">
+              <SubBar label="Operational pain" score={intelligence.operationalPain.score} />
+              <SubBar label="Buying readiness" score={intelligence.buyingReadiness.score} />
+              <SubBar label="Accessibility" score={intelligence.accessibility.score} />
+              <SubBar label="Implementation fit" score={intelligence.implementationFit.score} />
+              <SubBar
+                label="Trust barrier"
+                score={intelligence.trustBarrier.score}
+                inverted
+              />
+              <SubBar label="Evidence confidence" score={intelligence.evidenceConfidence.score} />
+            </div>
+
+            {intelligence.opportunityReasons.length > 0 && (
+              <>
+                <h4 className="drawer-sublabel">Why it ranked highly</h4>
+                <ul className="bullet-list">
+                  {intelligence.opportunityReasons.map((r, i) => (
+                    <li key={`p-${i}`}>{r}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {intelligence.riskFactors.length > 0 && (
+              <>
+                <h4 className="drawer-sublabel">Risk factors</h4>
+                <ul className="bullet-list">
+                  {intelligence.riskFactors.map((r, i) => (
+                    <li key={`r-${i}`}>{r}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+        )}
 
         <section className="drawer-section">
           <h3 className="drawer-label">Evidence &amp; proof</h3>

@@ -50,6 +50,15 @@ export const config = {
     requestTimeoutMs: envInt('AI_ANALYSIS_REQUEST_TIMEOUT_MS', 30000),
   },
 
+  intelligence: {
+    enabled: (process.env.INTELLIGENCE_ENABLED ?? '1') !== '0',
+  },
+
+  // FREE_SOURCE_MODE=1 → suppress paid sources during sourcing (e.g.
+  // Google Places). The mock connector + any free sources remain
+  // available, so the rest of the pipeline still has data to chew on.
+  freeSourceMode: process.env.FREE_SOURCE_MODE === '1',
+
   evidence: {
     enabled: (process.env.EVIDENCE_ENABLED ?? '1') !== '0',
     autoRun: process.env.EVIDENCE_AUTO_RUN === '1',

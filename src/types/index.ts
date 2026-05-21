@@ -207,6 +207,7 @@ export interface ReviewQueueRow {
   website: string | null;
   industry: string | null;
   location: string | null;
+  sizeEstimate: number | null;
   source: string;
   ruleScore: number;
   intentScore: number;

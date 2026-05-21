@@ -90,6 +90,7 @@ function makeRow(overrides: Partial<ReviewQueueRow>): ReviewQueueRow {
     website: 'https://test.example',
     industry: 'accounting',
     location: 'London',
+    sizeEstimate: 12,
     source: 'google_maps',
     ruleScore: 70,
     intentScore: 60,

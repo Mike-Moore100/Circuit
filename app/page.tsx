@@ -3,6 +3,8 @@ import {
   getContactsForLead,
   getDashboardData,
   getEvidenceForLead,
+  getIntelligenceForLead,
+  getIntelligenceSummariesByCompany,
   type SourceRunSummary,
 } from './_lib/dashboardData';
 import { ReviewActions } from './_components/ReviewActions';
@@ -110,6 +112,7 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams;
   const data = await getDashboardData();
+  const intelligenceByCompany = getIntelligenceSummariesByCompany();
   const selectedLeadId = params.lead ?? null;
   const selectedLead = selectedLeadId
     ? data.reviewQueue.find((r) => r.companyId === selectedLeadId) ??
@@ -322,6 +325,7 @@ export default async function DashboardPage({
                 {data.reviewQueue.map((row) => {
                   const isSelected = row.companyId === selectedLeadId;
                   const reviewMark = data.validation.reviewByCompany[row.companyId];
+                  const intel = intelligenceByCompany[row.companyId];
                   return (
                     <tr
                       key={row.companyId}
@@ -343,6 +347,14 @@ export default async function DashboardPage({
                           <div className="company-line">
                             <div className="lead-name-compact">
                               {row.company}
+                              {intel && (
+                                <span
+                                  className={`attention-pill attention-${intel.humanAttentionPriority}`}
+                                  title={`Opportunity ${intel.opportunityScore} · ${intel.likelyProjectType}`}
+                                >
+                                  {intel.humanAttentionPriority}
+                                </span>
+                              )}
                               {reviewMark && (
                                 <span className={`row-review-dot review-${reviewMark}`} title={reviewMark.replace(/_/g, ' ')} />
                               )}
@@ -432,6 +444,7 @@ export default async function DashboardPage({
           currentReview={data.validation.reviewByCompany[selectedLead.companyId] ?? null}
           contacts={getContactsForLead(selectedLead.companyId)}
           evidence={getEvidenceForLead(selectedLead.companyId)}
+          intelligence={getIntelligenceForLead(selectedLead.companyId)}
         />
       )}
     </>

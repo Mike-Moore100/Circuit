@@ -64,6 +64,7 @@ export function buildReviewRow(
     website: company.website_url ?? null,
     industry: company.industry ?? null,
     location: company.location ?? null,
+    sizeEstimate: company.size_estimate ?? null,
     source: company.source,
     ruleScore: combined.rule.ruleScore,
     intentScore: combined.intent.intentScore,

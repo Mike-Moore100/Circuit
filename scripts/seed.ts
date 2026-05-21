@@ -10,8 +10,14 @@ import { resetDb, closeDb, getDb } from '../src/db/client';
 import { runLeadSourcingPipeline } from '../src/pipeline/runLeadSourcingPipeline';
 import { mockSourceConnector } from '../src/sources/index';
 import { extractEvidenceForCompany } from '../src/evidence/evidenceScoring';
-import { getAllCompanies, getLatestScore } from '../src/db/repository';
+import {
+  getAllCompanies,
+  getLatestScore,
+  upsertOpportunityIntelligence,
+} from '../src/db/repository';
 import type { Campaign } from '../src/scoring/campaignTypes';
+import { buildIntelligenceInputs } from '../src/intelligence/buildInputs';
+import { computeOpportunityIntelligence } from '../src/intelligence/opportunityIntelligence';
 
 const skipEvidence = process.argv.includes('--skip-evidence');
 
@@ -84,6 +90,55 @@ async function main() {
   }
   const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
   console.log(`[seed] evidence done in ${elapsed}s — ok=${ok} partial=${partial}`);
+
+  // Recompute intelligence now that evidence has landed. The pipeline ran
+  // it once already, but those snapshots predate the screenshots and
+  // visual issues, so the confidence sub-score was artificially low.
+  console.log('[seed] recomputing intelligence with evidence in hand…');
+  for (const co of getAllCompanies(db)) {
+    const score = getLatestScore(co.id, db);
+    if (!score) continue;
+    try {
+      const inputs = buildIntelligenceInputs(
+        {
+          companyId: co.id,
+          companyName: co.name,
+          industry: co.industry,
+          location: co.location,
+          websiteUrl: co.website_url,
+          sizeEstimate: co.size_estimate,
+          ruleScore: score.rule_score,
+          intentScore: score.intent_score,
+          finalScore: score.final_score,
+          primaryCampaign: (score.primary_campaign ?? 'LOW_PRIORITY_NURTURE') as Campaign,
+        },
+        db,
+      );
+      const intel = computeOpportunityIntelligence(inputs);
+      upsertOpportunityIntelligence(
+        {
+          companyId: intel.companyId,
+          opportunityScore: intel.opportunityScore,
+          humanAttentionPriority: intel.humanAttentionPriority,
+          operationalPainScore: intel.operationalPain.score,
+          buyingReadinessScore: intel.buyingReadiness.score,
+          accessibilityScore: intel.accessibility.score,
+          implementationFitScore: intel.implementationFit.score,
+          trustBarrierScore: intel.trustBarrier.score,
+          evidenceConfidenceScore: intel.evidenceConfidence.score,
+          likelyProjectType: intel.likelyProjectType,
+          estimatedProjectComplexity: intel.estimatedProjectComplexity,
+          estimatedCommercialPotential: intel.estimatedCommercialPotential,
+          payload: intel as unknown as Record<string, unknown>,
+          computedAt: intel.computedAt,
+        },
+        db,
+      );
+    } catch (err) {
+      console.warn(`        [intel] ${co.name}: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+  console.log('[seed] intelligence recomputed.');
 
   closeDb();
 }

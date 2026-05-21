@@ -476,6 +476,119 @@ export function getLatestEvidenceTimestamp(
   return row?.t ?? null;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 10 — Opportunity Intelligence
+// ---------------------------------------------------------------------------
+export interface OpportunityIntelligenceRow {
+  company_id: string;
+  opportunity_score: number;
+  human_attention_priority: string;
+  operational_pain_score: number;
+  buying_readiness_score: number;
+  accessibility_score: number;
+  implementation_fit_score: number;
+  trust_barrier_score: number;
+  evidence_confidence_score: number;
+  likely_project_type: string;
+  estimated_project_complexity: string;
+  estimated_commercial_potential: string;
+  payload_json: string;
+  computed_at: string;
+}
+
+export interface UpsertIntelligenceInput {
+  companyId: string;
+  opportunityScore: number;
+  humanAttentionPriority: string;
+  operationalPainScore: number;
+  buyingReadinessScore: number;
+  accessibilityScore: number;
+  implementationFitScore: number;
+  trustBarrierScore: number;
+  evidenceConfidenceScore: number;
+  likelyProjectType: string;
+  estimatedProjectComplexity: string;
+  estimatedCommercialPotential: string;
+  payload: Record<string, unknown>;
+  computedAt: string;
+}
+
+export function upsertOpportunityIntelligence(
+  input: UpsertIntelligenceInput,
+  db: Database = getDb(),
+): void {
+  db.prepare(
+    `INSERT INTO opportunity_intelligence
+       (company_id, opportunity_score, human_attention_priority,
+        operational_pain_score, buying_readiness_score, accessibility_score,
+        implementation_fit_score, trust_barrier_score, evidence_confidence_score,
+        likely_project_type, estimated_project_complexity, estimated_commercial_potential,
+        payload_json, computed_at)
+     VALUES
+       (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(company_id) DO UPDATE SET
+       opportunity_score              = excluded.opportunity_score,
+       human_attention_priority       = excluded.human_attention_priority,
+       operational_pain_score         = excluded.operational_pain_score,
+       buying_readiness_score         = excluded.buying_readiness_score,
+       accessibility_score            = excluded.accessibility_score,
+       implementation_fit_score       = excluded.implementation_fit_score,
+       trust_barrier_score            = excluded.trust_barrier_score,
+       evidence_confidence_score      = excluded.evidence_confidence_score,
+       likely_project_type            = excluded.likely_project_type,
+       estimated_project_complexity   = excluded.estimated_project_complexity,
+       estimated_commercial_potential = excluded.estimated_commercial_potential,
+       payload_json                   = excluded.payload_json,
+       computed_at                    = excluded.computed_at`,
+  ).run(
+    input.companyId,
+    input.opportunityScore,
+    input.humanAttentionPriority,
+    input.operationalPainScore,
+    input.buyingReadinessScore,
+    input.accessibilityScore,
+    input.implementationFitScore,
+    input.trustBarrierScore,
+    input.evidenceConfidenceScore,
+    input.likelyProjectType,
+    input.estimatedProjectComplexity,
+    input.estimatedCommercialPotential,
+    JSON.stringify(input.payload),
+    input.computedAt,
+  );
+}
+
+export function getOpportunityIntelligence(
+  companyId: string,
+  db: Database = getDb(),
+): OpportunityIntelligenceRow | undefined {
+  return db
+    .prepare('SELECT * FROM opportunity_intelligence WHERE company_id = ?')
+    .get(companyId) as OpportunityIntelligenceRow | undefined;
+}
+
+export function listOpportunityIntelligence(
+  db: Database = getDb(),
+  options: { limit?: number; priority?: string } = {},
+): OpportunityIntelligenceRow[] {
+  const where: string[] = [];
+  const args: unknown[] = [];
+  if (options.priority) {
+    where.push('human_attention_priority = ?');
+    args.push(options.priority);
+  }
+  const sql = `
+    SELECT oi.*
+    FROM opportunity_intelligence oi
+    JOIN companies c ON c.id = oi.company_id
+    WHERE c.status NOT IN ('rejected','archived')
+    ${where.length > 0 ? `AND ${where.join(' AND ')}` : ''}
+    ORDER BY oi.opportunity_score DESC
+    ${typeof options.limit === 'number' ? `LIMIT ${Math.max(0, Math.floor(options.limit))}` : ''}
+  `;
+  return db.prepare(sql).all(...args) as OpportunityIntelligenceRow[];
+}
+
 export function getEvidenceStats(db: Database = getDb()): {
   companiesWithEvidence: number;
   totalEvidenceRows: number;

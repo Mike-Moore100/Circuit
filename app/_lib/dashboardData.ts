@@ -7,8 +7,11 @@ import {
   getEvidenceForCompany,
   getInspectionStats,
   getLatestReviewByCompany,
+  getOpportunityIntelligence,
   getRecentSourceRuns,
+  listOpportunityIntelligence,
 } from '../../src/db/repository';
+import type { OpportunityIntelligence } from '../../src/intelligence/intelligenceTypes';
 import { CAMPAIGN_VALUES, CAMPAIGN_LABEL } from '../../src/scoring/campaignTypes';
 import type { Campaign } from '../../src/scoring/campaignTypes';
 import {
@@ -188,6 +191,40 @@ export interface LeadEvidenceSummary {
   }>;
 }
 
+// Phase 10 — opportunity intelligence per lead (drawer)
+export function getIntelligenceForLead(companyId: string): OpportunityIntelligence | null {
+  const row = getOpportunityIntelligence(companyId, getDb());
+  if (!row) return null;
+  try {
+    return JSON.parse(row.payload_json) as OpportunityIntelligence;
+  } catch {
+    return null;
+  }
+}
+
+// Lightweight summary indexed by companyId for the queue rows. Only the
+// fields the queue actually surfaces — keeps the response small.
+export interface IntelligenceRowSummary {
+  opportunityScore: number;
+  humanAttentionPriority: string;
+  likelyProjectType: string;
+  estimatedCommercialPotential: string;
+}
+
+export function getIntelligenceSummariesByCompany(): Record<string, IntelligenceRowSummary> {
+  const rows = listOpportunityIntelligence(getDb(), { limit: 500 });
+  const out: Record<string, IntelligenceRowSummary> = {};
+  for (const r of rows) {
+    out[r.company_id] = {
+      opportunityScore: r.opportunity_score,
+      humanAttentionPriority: r.human_attention_priority,
+      likelyProjectType: r.likely_project_type,
+      estimatedCommercialPotential: r.estimated_commercial_potential,
+    };
+  }
+  return out;
+}
+
 export function getEvidenceForLead(companyId: string): LeadEvidenceSummary | null {
   const rows = getEvidenceForCompany(companyId, getDb());
   if (rows.length === 0) return null;
@@ -362,6 +399,7 @@ function toRow(raw: RawJoinedRow): ReviewQueueRow {
     website: raw.website_url ?? null,
     industry: raw.industry ?? null,
     location: raw.location ?? null,
+    sizeEstimate: raw.size_estimate ?? null,
     source: raw.source,
     ruleScore: raw.rule_score ?? 0,
     intentScore: raw.intent_score ?? 0,

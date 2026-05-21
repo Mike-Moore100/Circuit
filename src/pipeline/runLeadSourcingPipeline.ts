@@ -17,8 +17,11 @@ import {
   setCompanyStatus,
   upsertCompanyFromLead,
   upsertContactFromLead,
+  upsertOpportunityIntelligence,
   upsertReviewItem,
 } from '../db/repository';
+import { buildIntelligenceInputs } from '../intelligence/buildInputs';
+import { computeOpportunityIntelligence } from '../intelligence/opportunityIntelligence';
 import { dedupeLeads } from '../filters/dedupe';
 import { evaluateRules } from '../filters/ruleBasedFilter';
 import { combineScores, evaluateIntent } from '../scoring/intentScoring';
@@ -378,6 +381,54 @@ export async function runLeadSourcingPipeline(
         }
       }),
     );
+  }
+
+  // ---- 7. Opportunity Intelligence — deterministic composite scoring -----
+  // Cheap, in-process; runs on every accepted lead regardless of campaign.
+  if (config.intelligence.enabled) {
+    for (const row of summary.rows) {
+      try {
+        const inputs = buildIntelligenceInputs(
+          {
+            companyId: row.companyId,
+            companyName: row.company,
+            industry: row.industry,
+            location: row.location,
+            websiteUrl: row.website,
+            sizeEstimate: row.sizeEstimate,
+            ruleScore: row.ruleScore,
+            intentScore: row.intentScore,
+            finalScore: row.finalScore,
+            primaryCampaign: row.primaryCampaign,
+          },
+          db,
+        );
+        const intel = computeOpportunityIntelligence(inputs);
+        upsertOpportunityIntelligence(
+          {
+            companyId: intel.companyId,
+            opportunityScore: intel.opportunityScore,
+            humanAttentionPriority: intel.humanAttentionPriority,
+            operationalPainScore: intel.operationalPain.score,
+            buyingReadinessScore: intel.buyingReadiness.score,
+            accessibilityScore: intel.accessibility.score,
+            implementationFitScore: intel.implementationFit.score,
+            trustBarrierScore: intel.trustBarrier.score,
+            evidenceConfidenceScore: intel.evidenceConfidence.score,
+            likelyProjectType: intel.likelyProjectType,
+            estimatedProjectComplexity: intel.estimatedProjectComplexity,
+            estimatedCommercialPotential: intel.estimatedCommercialPotential,
+            payload: intel as unknown as Record<string, unknown>,
+            computedAt: intel.computedAt,
+          },
+          db,
+        );
+      } catch (err) {
+        // Per-lead isolation — never let intelligence kill the pipeline.
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[intelligence] ${row.company}: ${msg}`);
+      }
+    }
   }
 
   return summary;

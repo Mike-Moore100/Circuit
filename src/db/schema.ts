@@ -209,4 +209,26 @@ CREATE TABLE IF NOT EXISTS lead_evidence (
 CREATE INDEX IF NOT EXISTS lead_evidence_company_idx ON lead_evidence(company_id);
 CREATE INDEX IF NOT EXISTS lead_evidence_type_idx    ON lead_evidence(evidence_type);
 CREATE INDEX IF NOT EXISTS lead_evidence_created_at_idx ON lead_evidence(created_at DESC);
+
+-- Phase 10: Opportunity Intelligence. Single row per company with the
+-- latest computed intelligence snapshot. Replaced wholesale on each run.
+CREATE TABLE IF NOT EXISTS opportunity_intelligence (
+  company_id                       TEXT PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
+  opportunity_score                INTEGER NOT NULL,
+  human_attention_priority         TEXT NOT NULL,
+  operational_pain_score           INTEGER NOT NULL,
+  buying_readiness_score           INTEGER NOT NULL,
+  accessibility_score              INTEGER NOT NULL,
+  implementation_fit_score         INTEGER NOT NULL,
+  trust_barrier_score              INTEGER NOT NULL,
+  evidence_confidence_score        INTEGER NOT NULL,
+  likely_project_type              TEXT NOT NULL,
+  estimated_project_complexity     TEXT NOT NULL,
+  estimated_commercial_potential   TEXT NOT NULL,
+  payload_json                     TEXT NOT NULL,
+  computed_at                      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS opp_intel_score_idx     ON opportunity_intelligence(opportunity_score DESC);
+CREATE INDEX IF NOT EXISTS opp_intel_priority_idx  ON opportunity_intelligence(human_attention_priority);
 `;
