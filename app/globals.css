@@ -1096,6 +1096,48 @@ body:has(.drawer) .app-main { padding-right: 500px; }
 }
 
 /* ============================================================
+   Evidence section inside drawer
+   ============================================================ */
+.evidence-summary-row { margin-bottom: var(--space-2); }
+.evidence-screenshots {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.evidence-shot {
+  display: block;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-muted);
+  text-decoration: none;
+}
+.evidence-shot img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.evidence-shot-label {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #fff;
+}
+.evidence-shot.mobile img {
+  aspect-ratio: 9 / 19.5;
+  object-fit: cover;
+}
+
+/* ============================================================
    Campaign segments
    ============================================================ */
 .campaign-grid {

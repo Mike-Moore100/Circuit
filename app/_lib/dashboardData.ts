@@ -4,6 +4,7 @@ import {
   getAiAnalysisStats,
   getContactRoutesForCompany,
   getContactsForCompany,
+  getEvidenceForCompany,
   getInspectionStats,
   getLatestReviewByCompany,
   getRecentSourceRuns,
@@ -163,6 +164,68 @@ export interface LeadRoute {
 export interface LeadContactBundle {
   contacts: LeadContact[];
   routes: LeadRoute[];
+}
+
+export interface LeadEvidenceSummary {
+  capturedAt: string | null;
+  evidenceConfidence: number;
+  desktopScreenshotPath: string | null;
+  mobileScreenshotPath: string | null;
+  visualIssues: Array<{
+    code: string;
+    label: string;
+    confidence: number;
+    campaign: string;
+    detail: string | null;
+  }>;
+  operationalClues: Array<{
+    code: string;
+    label: string;
+    confidence: number;
+    evidence: string[];
+  }>;
+}
+
+export function getEvidenceForLead(companyId: string): LeadEvidenceSummary | null {
+  const rows = getEvidenceForCompany(companyId, getDb());
+  if (rows.length === 0) return null;
+  const summary = rows.find((r) => r.evidence_type === 'summary');
+  const visualIssues: LeadEvidenceSummary['visualIssues'] = [];
+  const operationalClues: LeadEvidenceSummary['operationalClues'] = [];
+  for (const r of rows) {
+    if (r.evidence_type.startsWith('visual.')) {
+      let meta: { campaign?: string; detail?: string | null } = {};
+      try {
+        meta = r.metadata_json ? JSON.parse(r.metadata_json) : {};
+      } catch { /* ignore */ }
+      visualIssues.push({
+        code: r.evidence_type.slice('visual.'.length),
+        label: r.evidence_summary ?? r.evidence_type,
+        confidence: r.confidence,
+        campaign: meta.campaign ?? 'ANY',
+        detail: meta.detail ?? null,
+      });
+    } else if (r.evidence_type.startsWith('operational.')) {
+      let meta: { evidence?: string[] } = {};
+      try {
+        meta = r.metadata_json ? JSON.parse(r.metadata_json) : {};
+      } catch { /* ignore */ }
+      operationalClues.push({
+        code: r.evidence_type.slice('operational.'.length),
+        label: r.evidence_summary ?? r.evidence_type,
+        confidence: r.confidence,
+        evidence: meta.evidence ?? [],
+      });
+    }
+  }
+  return {
+    capturedAt: summary?.created_at ?? null,
+    evidenceConfidence: summary?.confidence ?? 0,
+    desktopScreenshotPath: summary?.screenshot_path ?? null,
+    mobileScreenshotPath: summary?.mobile_screenshot_path ?? null,
+    visualIssues,
+    operationalClues,
+  };
 }
 
 export interface DashboardData {

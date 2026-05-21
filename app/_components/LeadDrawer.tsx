@@ -4,6 +4,7 @@ import type { ReviewQueueRow, ScoreReason } from '../../src/types';
 import type {
   AiAnalysisPanel,
   LeadContactBundle,
+  LeadEvidenceSummary,
   LeadVerifiedSignal,
 } from '../_lib/dashboardData';
 import { ReviewActions } from './ReviewActions';
@@ -15,6 +16,7 @@ interface Props {
   ai: AiAnalysisPanel | undefined;
   currentReview: string | null;
   contacts: LeadContactBundle;
+  evidence: LeadEvidenceSummary | null;
 }
 
 function emailStatusLabel(status: string | null): string {
@@ -50,7 +52,7 @@ function ReasonRow({ r, kind }: { r: ScoreReason; kind: 'pos' | 'neg' }) {
   );
 }
 
-export function LeadDrawer({ lead, signals, ai, currentReview, contacts }: Props) {
+export function LeadDrawer({ lead, signals, ai, currentReview, contacts, evidence }: Props) {
   const positiveReasons = lead.reasons.filter((r) => r.delta >= 0);
   const negativeReasons = [
     ...lead.reasons.filter((r) => r.delta < 0),
@@ -152,6 +154,95 @@ export function LeadDrawer({ lead, signals, ai, currentReview, contacts }: Props
               );
             })}
           </div>
+        </section>
+
+        <section className="drawer-section">
+          <h3 className="drawer-label">Evidence &amp; proof</h3>
+          {!evidence ? (
+            <p className="note">
+              No evidence captured yet. Run <code>npm run extract:evidence</code> to take
+              desktop + mobile screenshots and detect visual / operational issues.
+            </p>
+          ) : (
+            <>
+              <div className="evidence-summary-row">
+                <div className="drawer-score-sub">
+                  Confidence{' '}
+                  <strong style={{ color: 'var(--text)' }}>
+                    {evidence.evidenceConfidence}
+                  </strong>{' '}
+                  · {evidence.visualIssues.length} visual issue
+                  {evidence.visualIssues.length === 1 ? '' : 's'} ·{' '}
+                  {evidence.operationalClues.length} operational clue
+                  {evidence.operationalClues.length === 1 ? '' : 's'}
+                </div>
+              </div>
+              <div className="evidence-screenshots">
+                {evidence.desktopScreenshotPath && (
+                  <a
+                    href={`/api/screenshot/${lead.companyId}/desktop`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="evidence-shot"
+                  >
+                    <img
+                      src={`/api/screenshot/${lead.companyId}/desktop`}
+                      alt="Desktop screenshot"
+                    />
+                    <span className="evidence-shot-label">Desktop</span>
+                  </a>
+                )}
+                {evidence.mobileScreenshotPath && (
+                  <a
+                    href={`/api/screenshot/${lead.companyId}/mobile`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="evidence-shot mobile"
+                  >
+                    <img
+                      src={`/api/screenshot/${lead.companyId}/mobile`}
+                      alt="Mobile screenshot"
+                    />
+                    <span className="evidence-shot-label">Mobile</span>
+                  </a>
+                )}
+              </div>
+              {evidence.visualIssues.length > 0 && (
+                <>
+                  <h4 className="drawer-sublabel">Visual issues</h4>
+                  <div className="signal-chips">
+                    {evidence.visualIssues.map((v) => (
+                      <span
+                        key={v.code}
+                        className="signal-chip neg"
+                        title={v.detail ?? v.label}
+                      >
+                        {v.label}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
+              {evidence.operationalClues.length > 0 && (
+                <>
+                  <h4 className="drawer-sublabel">Operational clues</h4>
+                  <ul className="reason-list">
+                    {evidence.operationalClues.map((c) => (
+                      <li key={c.code} className="reason pos">
+                        <span className="delta">{c.confidence}</span>
+                        <span className="label">
+                          <strong>{c.label}</strong>
+                          {c.evidence.length > 0 && (
+                            <span className="muted"> — {c.evidence.join(', ')}</span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </>
+          )}
         </section>
 
         <section className="drawer-section">

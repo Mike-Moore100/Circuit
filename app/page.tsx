@@ -2,6 +2,7 @@ import Link from 'next/link';
 import {
   getContactsForLead,
   getDashboardData,
+  getEvidenceForLead,
   type SourceRunSummary,
 } from './_lib/dashboardData';
 import { ReviewActions } from './_components/ReviewActions';
@@ -565,6 +566,7 @@ export default async function DashboardPage({
           ai={data.aiByCompany[selectedLead.companyId]}
           currentReview={data.validation.reviewByCompany[selectedLead.companyId] ?? null}
           contacts={getContactsForLead(selectedLead.companyId)}
+          evidence={getEvidenceForLead(selectedLead.companyId)}
         />
       )}
     </>

@@ -384,6 +384,124 @@ export function getContactRoutesForCompany(
     .all(companyId) as ContactRouteRow[];
 }
 
+// ---------------------------------------------------------------------------
+// Phase 9 — Evidence / proof extraction
+// ---------------------------------------------------------------------------
+export interface EvidenceRow {
+  id: string;
+  company_id: string;
+  evidence_type: string;
+  evidence_summary: string | null;
+  confidence: number;
+  screenshot_path: string | null;
+  mobile_screenshot_path: string | null;
+  metadata_json: string | null;
+  created_at: string;
+}
+
+export interface PersistEvidenceInput {
+  companyId: string;
+  evidenceType: string;
+  evidenceSummary: string | null;
+  confidence: number;
+  screenshotPath: string | null;
+  mobileScreenshotPath: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export function insertLeadEvidence(
+  input: PersistEvidenceInput,
+  db: Database = getDb(),
+): EvidenceRow {
+  const row: EvidenceRow = {
+    id: randomUUID(),
+    company_id: input.companyId,
+    evidence_type: input.evidenceType,
+    evidence_summary: input.evidenceSummary,
+    confidence: input.confidence,
+    screenshot_path: input.screenshotPath,
+    mobile_screenshot_path: input.mobileScreenshotPath,
+    metadata_json: input.metadata ? JSON.stringify(input.metadata) : null,
+    created_at: now(),
+  };
+  db.prepare(
+    `INSERT INTO lead_evidence
+       (id, company_id, evidence_type, evidence_summary, confidence,
+        screenshot_path, mobile_screenshot_path, metadata_json, created_at)
+     VALUES (@id, @company_id, @evidence_type, @evidence_summary, @confidence,
+             @screenshot_path, @mobile_screenshot_path, @metadata_json, @created_at)`,
+  ).run(row);
+  return row;
+}
+
+// Clear previous evidence for a company so re-runs don't accumulate stale
+// rows. Each fresh extraction is the single source of truth.
+export function clearLeadEvidence(
+  companyId: string,
+  db: Database = getDb(),
+): void {
+  db.prepare('DELETE FROM lead_evidence WHERE company_id = ?').run(companyId);
+}
+
+export function getEvidenceForCompany(
+  companyId: string,
+  db: Database = getDb(),
+): EvidenceRow[] {
+  return db
+    .prepare(
+      'SELECT * FROM lead_evidence WHERE company_id = ? ORDER BY confidence DESC, created_at DESC',
+    )
+    .all(companyId) as EvidenceRow[];
+}
+
+export function getLatestEvidenceTimestamp(
+  companyId: string,
+  db: Database = getDb(),
+): string | null {
+  const row = db
+    .prepare(
+      'SELECT MAX(created_at) AS t FROM lead_evidence WHERE company_id = ?',
+    )
+    .get(companyId) as { t: string | null } | undefined;
+  return row?.t ?? null;
+}
+
+export function getEvidenceStats(db: Database = getDb()): {
+  companiesWithEvidence: number;
+  totalEvidenceRows: number;
+  withDesktopScreenshot: number;
+  withMobileScreenshot: number;
+  byType: Record<string, number>;
+} {
+  const rows = db
+    .prepare(
+      'SELECT company_id, evidence_type, screenshot_path, mobile_screenshot_path FROM lead_evidence',
+    )
+    .all() as Array<{
+    company_id: string;
+    evidence_type: string;
+    screenshot_path: string | null;
+    mobile_screenshot_path: string | null;
+  }>;
+  const companies = new Set<string>();
+  const byType: Record<string, number> = {};
+  let desktop = 0;
+  let mobile = 0;
+  for (const r of rows) {
+    companies.add(r.company_id);
+    byType[r.evidence_type] = (byType[r.evidence_type] ?? 0) + 1;
+    if (r.screenshot_path) desktop += 1;
+    if (r.mobile_screenshot_path) mobile += 1;
+  }
+  return {
+    companiesWithEvidence: companies.size,
+    totalEvidenceRows: rows.length,
+    withDesktopScreenshot: desktop,
+    withMobileScreenshot: mobile,
+    byType,
+  };
+}
+
 export function getContactStats(db: Database = getDb()): {
   total: number;
   withDirectEmail: number;

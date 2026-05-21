@@ -192,4 +192,21 @@ CREATE TABLE IF NOT EXISTS contact_routes (
 
 CREATE INDEX IF NOT EXISTS contact_routes_company_idx ON contact_routes(company_id);
 CREATE INDEX IF NOT EXISTS contact_routes_type_idx    ON contact_routes(route_type);
+
+-- Phase 9: evidence / proof extraction
+CREATE TABLE IF NOT EXISTS lead_evidence (
+  id                       TEXT PRIMARY KEY,
+  company_id               TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  evidence_type            TEXT NOT NULL,
+  evidence_summary         TEXT,
+  confidence               REAL NOT NULL DEFAULT 0,
+  screenshot_path          TEXT,
+  mobile_screenshot_path   TEXT,
+  metadata_json            TEXT,
+  created_at               TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS lead_evidence_company_idx ON lead_evidence(company_id);
+CREATE INDEX IF NOT EXISTS lead_evidence_type_idx    ON lead_evidence(evidence_type);
+CREATE INDEX IF NOT EXISTS lead_evidence_created_at_idx ON lead_evidence(created_at DESC);
 `;

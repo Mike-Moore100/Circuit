@@ -47,6 +47,23 @@ export const config = {
     requestTimeoutMs: envInt('AI_ANALYSIS_REQUEST_TIMEOUT_MS', 30000),
   },
 
+  evidence: {
+    enabled: (process.env.EVIDENCE_ENABLED ?? '1') !== '0',
+    autoRun: process.env.EVIDENCE_AUTO_RUN === '1',
+    timeoutMs: envInt('EVIDENCE_TIMEOUT_MS', 25000),
+    maxLeadsPerRun: envInt('EVIDENCE_MAX_LEADS_PER_RUN', 25),
+    cacheTtlDays: envInt('EVIDENCE_CACHE_TTL_DAYS', 14),
+    screenshotDir: envPath('EVIDENCE_SCREENSHOT_DIR', 'data/screenshots'),
+    allowedCampaigns: (process.env.EVIDENCE_ALLOWED_CAMPAIGNS ?? 'AI_AUTOMATION,WEB_REBUILD,FUNNEL_OPTIMIZATION,LOCAL_DIGITAL_UPGRADE')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    allowedPriorities: (process.env.EVIDENCE_ALLOWED_PRIORITIES ?? 'A,B')
+      .split(',')
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean) as Array<'A' | 'B' | 'C'>,
+  },
+
   contactDiscovery: {
     enabled: (process.env.CONTACT_DISCOVERY_ENABLED ?? '1') !== '0',
     maxPagesPerSite: envInt('CONTACT_DISCOVERY_MAX_PAGES_PER_SITE', 4),
