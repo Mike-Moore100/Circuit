@@ -10,7 +10,7 @@ function fmtReason(r: ScoreReason): string {
 export function explainScoreFor(lead: RawLead): { combined: CombinedScore; text: string } {
   const rule = evaluateRules(lead);
   const intent = evaluateIntent(lead);
-  const combined = combineScores(rule, intent);
+  const combined = combineScores(rule, intent, lead);
 
   const lines: string[] = [];
   lines.push('─────────────────────────────────────────────────────────────');
@@ -24,6 +24,7 @@ export function explainScoreFor(lead: RawLead): { combined: CombinedScore; text:
   lines.push(`Intent score:   ${intent.intentScore.toString().padStart(3)} / 100`);
   lines.push(`Final score:    ${combined.finalScore.toString().padStart(3)} / 100`);
   lines.push(`Priority:       ${combined.priority}`);
+  lines.push(`Campaign:       ${combined.campaign.primary}  — ${combined.campaign.primaryReason}`);
   lines.push('');
   lines.push('Rule reasons:');
   if (rule.reasons.length === 0) lines.push('    (none)');

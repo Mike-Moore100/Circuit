@@ -55,6 +55,8 @@ async function main() {
     const score = getLatestScore(company.id, db);
     if (!score) continue;
     if (!allowed.has(score.priority as 'A' | 'B' | 'C')) continue;
+    // AI analysis prompt is calibrated for AI_AUTOMATION campaign leads only.
+    if (score.primary_campaign && score.primary_campaign !== 'AI_AUTOMATION') continue;
     let parsed: { rule: { reasons: Array<{ label: string; delta: number; code: string }>; rejectionReasons: Array<{ label: string; delta: number; code: string }> } } | null = null;
     try {
       parsed = JSON.parse(score.reasons_json);

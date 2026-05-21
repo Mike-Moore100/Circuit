@@ -121,11 +121,19 @@ describe('combined scoring — ranking sanity', () => {
     }
   });
 
-  it('all clear bad-fit fixtures are rejected', () => {
-    for (const name of ['La Tavola Rossa', 'Hyperion Cloud Systems', 'pixeldoodle']) {
+  it('true disqualifiers route to REJECT campaign', () => {
+    // Phase 6: only hard disqualifiers (enterprise, hobby project, internal
+    // automation team, big-corp industry) are true rejects. Restaurants and
+    // other low-priority industries route to nurture instead.
+    for (const name of ['Hyperion Cloud Systems', 'pixeldoodle']) {
       const entry = ranked.find((r) => r.lead.companyName === name)!;
-      expect(entry.combined.priority).toBe('Reject');
+      expect(entry.combined.campaign.primary).toBe('REJECT');
     }
+  });
+
+  it('restaurants are NOT rejected — they land in LOW_PRIORITY_NURTURE or a web campaign', () => {
+    const tavola = ranked.find((r) => r.lead.companyName === 'La Tavola Rossa')!;
+    expect(tavola.combined.campaign.primary).not.toBe('REJECT');
   });
 });
 
@@ -145,7 +153,7 @@ describe('combineScores math', () => {
     const lead = bySource('Lumen & Co Marketing');
     const rule = evaluateRules(lead);
     const intent = evaluateIntent(lead);
-    const combined = combineScores(rule, intent);
+    const combined = combineScores(rule, intent, lead);
     expect(combined.finalScore).toBeGreaterThanOrEqual(0);
     expect(combined.finalScore).toBeLessThanOrEqual(100);
     expect(combined.finalScore).toBeLessThanOrEqual(Math.max(rule.ruleScore, intent.intentScore) + 1);

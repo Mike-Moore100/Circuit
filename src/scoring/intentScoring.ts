@@ -7,6 +7,7 @@ import type {
   ScoreReason,
 } from '../types/index';
 import { evaluateRules } from '../filters/ruleBasedFilter';
+import { classifyCampaign } from './campaignClassifier';
 import {
   FINAL_WEIGHTS,
   FOUNDER_ROLE_KEYWORDS,
@@ -334,20 +335,23 @@ export function priorityFor(finalScore: number): Priority {
 export function combineScores(
   rule: RuleScoreBreakdown,
   intent: IntentScoreBreakdown,
+  lead: RawLead,
 ): CombinedScore {
   const finalScore = clamp(
     Math.round(rule.ruleScore * FINAL_WEIGHTS.rule + intent.intentScore * FINAL_WEIGHTS.intent),
   );
+  const campaign = classifyCampaign(lead, rule, intent);
   return {
     rule,
     intent,
     finalScore,
     priority: priorityFor(finalScore),
+    campaign,
   };
 }
 
 export function scoreLead(lead: RawLead): CombinedScore {
   const rule = evaluateRules(lead);
   const intent = evaluateIntent(lead);
-  return combineScores(rule, intent);
+  return combineScores(rule, intent, lead);
 }

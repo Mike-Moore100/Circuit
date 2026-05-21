@@ -137,6 +137,48 @@ export const MOCK_LEADS: RawLead[] = [
       { type: 'team', value: 'founder reachable', confidence: 85 },
     ],
   },
+  // ---- Phase 6 — campaign-routing fixtures (NOT auto-reject) -----------
+  {
+    companyName: 'Northshore Plumbing',
+    websiteUrl: null,
+    industry: 'local services',
+    location: 'Brighton, UK',
+    sizeEstimate: 6,
+    source: 'mock',
+    sourceUrl: 'https://example.com/listings/northshore-plumbing',
+    contactName: 'Pete Marshall',
+    contactRole: 'Owner',
+    contactEmail: 'pete@northshore-plumbing.example',
+    linkedinUrl: null,
+    notes: 'Small plumbing service; takes calls but no website yet.',
+    signals: [
+      { type: 'industry', value: 'local services', confidence: 90 },
+      { type: 'team', value: 'founder reachable', confidence: 95 },
+      { type: 'workflow', value: 'scheduling', confidence: 70 },
+    ],
+  },
+  {
+    companyName: 'Riverwood Hair Salon',
+    websiteUrl: 'https://riverwood-hair.example',
+    industry: 'local services',
+    location: 'Leeds, UK',
+    sizeEstimate: 9,
+    source: 'mock',
+    sourceUrl: 'https://example.com/listings/riverwood',
+    contactName: 'Mia Chen',
+    contactRole: 'Owner',
+    contactEmail: 'mia@riverwood-hair.example',
+    linkedinUrl: null,
+    notes: 'Hair salon with a broken homepage; appointments handled via phone.',
+    signals: [
+      { type: 'industry', value: 'local services', confidence: 90 },
+      { type: 'team', value: 'founder reachable', confidence: 92 },
+      // Pretend inspection already happened so the classifier sees the
+      // verified failure signal without needing a real fetch.
+      { type: 'verified.website_failed', value: 'fetch failed', confidence: 95 },
+    ],
+  },
+
   // ---- Borderline cases -------------------------------------------------
   {
     companyName: 'Greenhill Legal',

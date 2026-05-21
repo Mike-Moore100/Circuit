@@ -5,6 +5,8 @@ import {
   getInspectionStats,
   getRecentSourceRuns,
 } from '../../src/db/repository';
+import { CAMPAIGN_VALUES, CAMPAIGN_LABEL } from '../../src/scoring/campaignTypes';
+import type { Campaign } from '../../src/scoring/campaignTypes';
 import type {
   Company,
   Priority,
@@ -20,6 +22,11 @@ interface RawJoinedRow extends Company {
   final_score: number | null;
   priority: Priority | null;
   reasons_json: string | null;
+  primary_campaign: Campaign | null;
+  campaign_scores_json: string | null;
+  campaign_reasons_json: string | null;
+  primary_reason: string | null;
+  suggested_investigation: string | null;
   review_status: string | null;
 }
 
@@ -110,6 +117,10 @@ export interface AiOverview {
 export interface DashboardData {
   totals: { processed: number; accepted: number; rejected: number };
   priorityCounts: Record<Priority, number>;
+  campaignCounts: Record<Campaign, number>;
+  // Leads grouped by their primary campaign. REJECT bucket is kept separate
+  // because it's the only segment we don't actively pursue.
+  byCampaign: Record<Campaign, ReviewQueueRow[]>;
   reviewQueue: ReviewQueueRow[];
   rejected: ReviewQueueRow[];
   sourceRuns: SourceRunSummary[];
@@ -159,12 +170,44 @@ function nextStep(priority: Priority, websiteUrl: string | null): string {
   return 'Park in nurture list; revisit if stronger signals appear.';
 }
 
+function parseCampaignScores(raw: string | null): Record<Campaign, number> {
+  const zero: Record<Campaign, number> = {
+    AI_AUTOMATION: 0,
+    WEB_REBUILD: 0,
+    FUNNEL_OPTIMIZATION: 0,
+    LOCAL_DIGITAL_UPGRADE: 0,
+    LOW_PRIORITY_NURTURE: 0,
+    REJECT: 0,
+  };
+  if (!raw) return zero;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    return { ...zero, ...parsed };
+  } catch {
+    return zero;
+  }
+}
+
+function parseTrueRejectionReasons(raw: string | null): ScoreReason[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as {
+      trueRejectionReasons?: ScoreReason[];
+    };
+    return parsed.trueRejectionReasons ?? [];
+  } catch {
+    return [];
+  }
+}
+
 function toRow(raw: RawJoinedRow): ReviewQueueRow {
   const parsed = parseReasons(raw.reasons_json);
   const reasons = parsed
     ? [...parsed.rule.reasons, ...parsed.intent.reasons]
     : ([] as ScoreReason[]);
-  const rejectionReasons = parsed?.rule.rejectionReasons ?? [];
+  const primaryCampaign: Campaign = raw.primary_campaign ?? 'LOW_PRIORITY_NURTURE';
+  const trueRejectionReasons = parseTrueRejectionReasons(raw.campaign_reasons_json);
+  const isReject = primaryCampaign === 'REJECT';
   return {
     companyId: raw.id,
     company: raw.name,
@@ -176,12 +219,18 @@ function toRow(raw: RawJoinedRow): ReviewQueueRow {
     intentScore: raw.intent_score ?? 0,
     finalScore: raw.final_score ?? 0,
     priority: raw.priority ?? 'Reject',
-    status: (raw.review_status as ReviewQueueRow['status']) ?? 'rejected',
+    status: (raw.review_status as ReviewQueueRow['status']) ?? (isReject ? 'rejected' : 'queued'),
     reasons,
-    rejectionReasons,
+    // Only true rejection reasons are surfaced — the legacy
+    // rule.rejectionReasons list is no longer treated as final.
+    rejectionReasons: isReject ? trueRejectionReasons : [],
     likelyPainPoints: inferPainPoints(reasons),
-    suggestedNextStep: nextStep(raw.priority ?? 'Reject', raw.website_url ?? null),
+    suggestedNextStep:
+      raw.suggested_investigation ?? nextStep(raw.priority ?? 'Reject', raw.website_url ?? null),
     updatedAt: raw.updated_at,
+    primaryCampaign,
+    campaignScores: parseCampaignScores(raw.campaign_scores_json),
+    primaryReason: raw.primary_reason ?? '',
   };
 }
 
@@ -197,12 +246,17 @@ export async function getDashboardData(): Promise<DashboardData> {
           GROUP BY company_id
        )
        SELECT c.*,
-              s.rule_score    AS rule_score,
-              s.intent_score  AS intent_score,
-              s.final_score   AS final_score,
-              s.priority      AS priority,
-              s.reasons_json  AS reasons_json,
-              r.status        AS review_status
+              s.rule_score              AS rule_score,
+              s.intent_score            AS intent_score,
+              s.final_score             AS final_score,
+              s.priority                AS priority,
+              s.reasons_json            AS reasons_json,
+              s.primary_campaign        AS primary_campaign,
+              s.campaign_scores_json    AS campaign_scores_json,
+              s.campaign_reasons_json   AS campaign_reasons_json,
+              s.primary_reason          AS primary_reason,
+              s.suggested_investigation AS suggested_investigation,
+              r.status                  AS review_status
          FROM companies c
          LEFT JOIN latest l        ON l.company_id = c.id
          LEFT JOIN lead_scores s   ON s.company_id = c.id AND s.created_at = l.created_at
@@ -212,11 +266,33 @@ export async function getDashboardData(): Promise<DashboardData> {
     .all() as RawJoinedRow[];
 
   const all = rows.map(toRow);
-  const reviewQueue = all.filter((r) => r.priority !== 'Reject');
-  const rejected = all.filter((r) => r.priority === 'Reject');
+  // Admission is now driven by campaign, not priority.
+  const reviewQueue = all.filter((r) => r.primaryCampaign !== 'REJECT');
+  const rejected = all.filter((r) => r.primaryCampaign === 'REJECT');
 
   const priorityCounts: Record<Priority, number> = { A: 0, B: 0, C: 0, Reject: 0 };
   for (const r of all) priorityCounts[r.priority] += 1;
+
+  const campaignCounts: Record<Campaign, number> = {
+    AI_AUTOMATION: 0,
+    WEB_REBUILD: 0,
+    FUNNEL_OPTIMIZATION: 0,
+    LOCAL_DIGITAL_UPGRADE: 0,
+    LOW_PRIORITY_NURTURE: 0,
+    REJECT: 0,
+  };
+  const byCampaign: Record<Campaign, ReviewQueueRow[]> = {
+    AI_AUTOMATION: [],
+    WEB_REBUILD: [],
+    FUNNEL_OPTIMIZATION: [],
+    LOCAL_DIGITAL_UPGRADE: [],
+    LOW_PRIORITY_NURTURE: [],
+    REJECT: [],
+  };
+  for (const r of all) {
+    campaignCounts[r.primaryCampaign] += 1;
+    byCampaign[r.primaryCampaign].push(r);
+  }
 
   const sourceRuns: SourceRunSummary[] = getRecentSourceRuns(20, db).map((r) => {
     let errors: string[] = [];
@@ -382,6 +458,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       rejected: rejected.length,
     },
     priorityCounts,
+    campaignCounts,
+    byCampaign,
     reviewQueue,
     rejected,
     sourceRuns,

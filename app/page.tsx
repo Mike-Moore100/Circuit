@@ -8,6 +8,11 @@ import { ReviewActions } from './_components/ReviewActions';
 import { AiFeedback } from './_components/AiFeedback';
 import { Avatar } from './_components/Avatar';
 import { PriorityDonut } from './_components/PriorityDonut';
+import {
+  CAMPAIGN_LABEL,
+  CAMPAIGN_DESCRIPTION,
+  type Campaign,
+} from '../src/scoring/campaignTypes';
 import type { Priority, ReviewQueueRow, ScoreReason } from '../src/types';
 
 export const dynamic = 'force-dynamic';
@@ -425,12 +430,43 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      {/* ============ Campaign segments ============ */}
+      <section className="section" id="campaigns">
+        <div className="section-head">
+          <h2 className="section-title">Campaign segments</h2>
+          <span className="section-meta">
+            How leads are routed — every non-reject lead lands in a specific
+            campaign, not a generic "review" pile
+          </span>
+        </div>
+        <div className="campaign-grid">
+          {(
+            [
+              'AI_AUTOMATION',
+              'WEB_REBUILD',
+              'FUNNEL_OPTIMIZATION',
+              'LOCAL_DIGITAL_UPGRADE',
+              'LOW_PRIORITY_NURTURE',
+              'REJECT',
+            ] as Campaign[]
+          ).map((c) => (
+            <div key={c} className={`campaign-card campaign-${c}`}>
+              <div className="campaign-card-head">
+                <span className={`campaign-tag campaign-${c}`}>{CAMPAIGN_LABEL[c]}</span>
+                <span className="campaign-count">{data.campaignCounts[c]}</span>
+              </div>
+              <p className="campaign-desc">{CAMPAIGN_DESCRIPTION[c]}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ============ Review queue ============ */}
       <section className="section" id="review">
         <div className="section-head">
           <h2 className="section-title">Review queue</h2>
           <span className="section-meta">
-            {data.reviewQueue.length} lead{data.reviewQueue.length === 1 ? '' : 's'} · sorted by score
+            {data.reviewQueue.length} lead{data.reviewQueue.length === 1 ? '' : 's'} · grouped by campaign
           </span>
         </div>
 
@@ -444,7 +480,7 @@ export default async function DashboardPage() {
             <table className="lead-table">
               <thead>
                 <tr>
-                  <th className="col-priority">Priority</th>
+                  <th className="col-campaign">Campaign</th>
                   <th>Company</th>
                   <th className="col-score">Score</th>
                   <th className="col-actions">Action</th>
@@ -456,8 +492,11 @@ export default async function DashboardPage() {
                   const positiveReasons = row.reasons.filter((r) => r.delta >= 0);
                   return (
                     <tr key={row.companyId}>
-                      <td className="col-priority">
-                        <PriorityTag priority={row.priority} />
+                      <td className="col-campaign">
+                        <span className={`campaign-tag campaign-${row.primaryCampaign}`}>
+                          {CAMPAIGN_LABEL[row.primaryCampaign]}
+                        </span>
+                        <div className="campaign-reason">{row.primaryReason}</div>
                       </td>
                       <td>
                         <div className="company-cell">
@@ -608,9 +647,9 @@ export default async function DashboardPage() {
         {data.rejected.length > 0 && (
           <details className="disclosure" id="rejected">
             <summary>
-              Rejected leads
+              True rejects
               <span className="summary-meta">
-                {data.rejected.length} below the review threshold
+                {data.rejected.length} disqualified — enterprise, hobby, internal automation team, or hard-reject industry
               </span>
             </summary>
             <div className="disclosure-body">

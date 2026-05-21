@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS lead_scores (
 CREATE INDEX IF NOT EXISTS lead_scores_company_idx  ON lead_scores(company_id);
 CREATE INDEX IF NOT EXISTS lead_scores_priority_idx ON lead_scores(priority);
 
+-- Phase 6: campaign segmentation. Columns are added via idempotent ALTERs in
+-- client.ts because SQLite doesn't support ADD COLUMN IF NOT EXISTS.
+
 CREATE TABLE IF NOT EXISTS review_queue (
   id         TEXT PRIMARY KEY,
   company_id TEXT NOT NULL UNIQUE REFERENCES companies(id) ON DELETE CASCADE,

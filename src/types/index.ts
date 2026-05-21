@@ -178,11 +178,26 @@ export interface IntentScoreBreakdown {
   };
 }
 
+// Campaign segmentation lives in src/scoring/campaignTypes.ts; re-exported
+// here so consumers can import it from the same place as the other types.
+export type {
+  Campaign,
+  CampaignClassification,
+} from '../scoring/campaignTypes';
+export {
+  CAMPAIGN_VALUES,
+  CAMPAIGN_LABEL,
+  CAMPAIGN_DESCRIPTION,
+} from '../scoring/campaignTypes';
+
 export interface CombinedScore {
   rule: RuleScoreBreakdown;
   intent: IntentScoreBreakdown;
   finalScore: number;
   priority: Priority;
+  // Phase 6: campaign segmentation. The pipeline always fills these in;
+  // legacy DB rows may have them as null until backfilled.
+  campaign: import('../scoring/campaignTypes').CampaignClassification;
 }
 
 // View model used by the dashboard and the JSON/CSV exports.
@@ -199,8 +214,16 @@ export interface ReviewQueueRow {
   priority: Priority;
   status: ReviewItem['status'];
   reasons: ScoreReason[];
+  // True disqualifiers only — populated when the campaign is REJECT.
   rejectionReasons: ScoreReason[];
   likelyPainPoints: string[];
   suggestedNextStep: string;
   updatedAt: string;
+  // Phase 6
+  primaryCampaign: import('../scoring/campaignTypes').Campaign;
+  campaignScores: Record<
+    import('../scoring/campaignTypes').Campaign,
+    number
+  >;
+  primaryReason: string;
 }

@@ -57,6 +57,7 @@ export function buildReviewRow(
   lead: RawLead,
   combined: CombinedScore,
 ): ReviewQueueRow {
+  const isReject = combined.campaign.primary === 'REJECT';
   return {
     companyId: company.id,
     company: company.name,
@@ -68,11 +69,16 @@ export function buildReviewRow(
     intentScore: combined.intent.intentScore,
     finalScore: combined.finalScore,
     priority: combined.priority,
-    status: combined.priority === 'Reject' ? 'rejected' : 'queued',
+    status: isReject ? 'rejected' : 'queued',
     reasons: [...combined.rule.reasons, ...combined.intent.reasons],
-    rejectionReasons: combined.rule.rejectionReasons,
+    // True rejection reasons only — empty if the lead landed in a real campaign.
+    rejectionReasons: isReject ? combined.campaign.trueRejectionReasons : [],
     likelyPainPoints: inferPainPoints(combined),
-    suggestedNextStep: suggestNextStep(combined, lead),
+    // The campaign-specific next step replaces the priority-derived one.
+    suggestedNextStep: combined.campaign.suggestedInvestigation,
     updatedAt: new Date().toISOString(),
+    primaryCampaign: combined.campaign.primary,
+    campaignScores: combined.campaign.scores,
+    primaryReason: combined.campaign.primaryReason,
   };
 }

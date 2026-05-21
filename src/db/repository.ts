@@ -208,6 +208,7 @@ export function persistScore(
   score: CombinedScore,
   db: Database = getDb(),
 ): void {
+  const campaign = score.campaign;
   const row = {
     id: randomUUID(),
     company_id: companyId,
@@ -219,23 +220,56 @@ export function persistScore(
       rule: score.rule,
       intent: score.intent,
     }),
+    primary_campaign: campaign.primary,
+    campaign_scores_json: JSON.stringify(campaign.scores),
+    campaign_reasons_json: JSON.stringify({
+      reasons: campaign.reasons,
+      trueRejectionReasons: campaign.trueRejectionReasons,
+    }),
+    primary_reason: campaign.primaryReason,
+    suggested_investigation: campaign.suggestedInvestigation,
     created_at: now(),
   };
   db.prepare(
     `INSERT INTO lead_scores
-       (id, company_id, rule_score, intent_score, final_score, priority, reasons_json, created_at)
+       (id, company_id, rule_score, intent_score, final_score, priority,
+        reasons_json, primary_campaign, campaign_scores_json,
+        campaign_reasons_json, primary_reason, suggested_investigation,
+        created_at)
      VALUES
-       (@id, @company_id, @rule_score, @intent_score, @final_score, @priority, @reasons_json, @created_at)`,
+       (@id, @company_id, @rule_score, @intent_score, @final_score, @priority,
+        @reasons_json, @primary_campaign, @campaign_scores_json,
+        @campaign_reasons_json, @primary_reason, @suggested_investigation,
+        @created_at)`,
   ).run(row);
 }
 
 export function getLatestScore(
   companyId: string,
   db: Database = getDb(),
-): { rule_score: number; intent_score: number; final_score: number; priority: Priority; reasons_json: string; created_at: string } | undefined {
+):
+  | {
+      rule_score: number;
+      intent_score: number;
+      final_score: number;
+      priority: Priority;
+      reasons_json: string;
+      primary_campaign: string | null;
+      campaign_scores_json: string | null;
+      campaign_reasons_json: string | null;
+      primary_reason: string | null;
+      suggested_investigation: string | null;
+      created_at: string;
+    }
+  | undefined {
   return db
     .prepare(
-      'SELECT rule_score, intent_score, final_score, priority, reasons_json, created_at FROM lead_scores WHERE company_id = ? ORDER BY created_at DESC LIMIT 1',
+      `SELECT rule_score, intent_score, final_score, priority, reasons_json,
+              primary_campaign, campaign_scores_json, campaign_reasons_json,
+              primary_reason, suggested_investigation, created_at
+         FROM lead_scores
+        WHERE company_id = ?
+        ORDER BY created_at DESC LIMIT 1`,
     )
     .get(companyId) as
     | {
@@ -244,6 +278,11 @@ export function getLatestScore(
         final_score: number;
         priority: Priority;
         reasons_json: string;
+        primary_campaign: string | null;
+        campaign_scores_json: string | null;
+        campaign_reasons_json: string | null;
+        primary_reason: string | null;
+        suggested_investigation: string | null;
         created_at: string;
       }
     | undefined;

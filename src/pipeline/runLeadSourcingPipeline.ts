@@ -200,14 +200,17 @@ export async function runLeadSourcingPipeline(
       }
 
       // ---- 4c. Score + enqueue using the now-enriched leads --------------
+      // Admission to the review queue is now driven by campaign segmentation:
+      // every non-REJECT campaign enters the queue regardless of final score.
+      // The final score still ranks within the queue.
       for (const { company, lead } of persistedLeads) {
         const rule = evaluateRules(lead);
         const intent = evaluateIntent(lead);
-        const combined: CombinedScore = combineScores(rule, intent);
+        const combined: CombinedScore = combineScores(rule, intent, lead);
 
         persistScore(company.id, combined, db);
 
-        if (combined.finalScore >= config.minReviewScore) {
+        if (combined.campaign.primary !== 'REJECT') {
           upsertReviewItem(company.id, combined.priority, db);
           setCompanyStatus(company.id, 'review', db);
           summary.accepted += 1;
@@ -265,10 +268,18 @@ export async function runLeadSourcingPipeline(
 
   summary.rows.sort((a, b) => b.finalScore - a.finalScore);
 
-  // ---- 5. Selective AI analysis on top-priority leads only -----------
+  // ---- 5. Selective AI analysis ---------------------------------------
+  // Only AI_AUTOMATION campaign leads get the operational-intelligence
+  // analysis. Other campaigns (WEB_REBUILD, LOCAL_DIGITAL_UPGRADE, etc.)
+  // need different prompts that don't exist yet — sending them through
+  // the current AI layer would produce confused output.
   if (config.aiAnalysis.enabled && summary.rows.length > 0) {
     const candidates: AnalyzeTopLeadsCandidate[] = summary.rows
-      .filter((row) => row.priority === 'A' || row.priority === 'B' || row.priority === 'C')
+      .filter(
+        (row) =>
+          row.primaryCampaign === 'AI_AUTOMATION' &&
+          (row.priority === 'A' || row.priority === 'B' || row.priority === 'C'),
+      )
       .map((row) => {
         // Pull the persisted lead's signals back out of the row's reasons +
         // any inspection signals already attached to this row in summary.
