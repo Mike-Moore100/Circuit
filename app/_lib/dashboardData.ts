@@ -1,3 +1,4 @@
+import { config } from '../../src/config/index';
 import { getDb } from '../../src/db/client';
 import {
   getAiAnalysisStats,
@@ -370,17 +371,9 @@ export async function getDashboardData(): Promise<DashboardData> {
     failed: aiStats.failed,
     todayCostUsd: aiStats.todayCostUsd,
     totalCostUsd: aiStats.totalCostUsd,
-    dailyLimitUsd: 0, // server-side caller fills this from config below
+    dailyLimitUsd: config.aiAnalysis.dailyCostLimitUsd,
     feedback: aiStats.feedback,
   };
-  // Pull the cost cap from config without an extra import dance: we read it
-  // via the same db client + a side import to avoid making this file async.
-  try {
-    const { config } = await import('../../src/config/index');
-    aiOverview.dailyLimitUsd = config.aiAnalysis.dailyCostLimitUsd;
-  } catch {
-    aiOverview.dailyLimitUsd = 5;
-  }
 
   return {
     totals: {
