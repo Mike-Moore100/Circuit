@@ -2,7 +2,12 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { REVIEW_LABEL, REVIEW_TYPES, type ReviewType } from '../../src/validation/types';
+import {
+  REVIEW_HINT,
+  REVIEW_LABEL,
+  REVIEW_TYPES,
+  type ReviewType,
+} from '../../src/validation/types';
 
 interface Props {
   companyId: string;
@@ -21,15 +26,19 @@ const ORDER: ReviewType[] = [
   'false_positive',
 ];
 
+// Tone map. Every button gets a coloured border by default so the row
+// reads as one consistent control. Positive ratings use a success tint,
+// negative ratings (the "wrongly..." pair) use a danger tint, neutrals
+// stay grey. Selected state fills with the matching solid colour.
 function toneClass(type: ReviewType, current: string | null): string {
-  const base = current === type ? 'btn btn-primary' : 'btn';
+  const selected = current === type;
   if (type === 'correct_campaign' || type === 'strong_opportunity') {
-    return current === type ? 'btn btn-success' : 'btn';
+    return selected ? 'btn btn-success' : 'btn btn-success-outline';
   }
   if (type === 'false_reject' || type === 'false_positive') {
-    return current === type ? 'btn btn-danger' : 'btn btn-ghost';
+    return selected ? 'btn btn-danger-solid' : 'btn btn-danger';
   }
-  return base;
+  return selected ? 'btn btn-primary' : 'btn';
 }
 
 export function LeadReviewActions({
@@ -71,7 +80,7 @@ export function LeadReviewActions({
             className={toneClass(type, currentReview)}
             onClick={() => send(type)}
             disabled={pending}
-            title={REVIEW_LABEL[type]}
+            title={REVIEW_HINT[type]}
           >
             {REVIEW_LABEL[type]}
           </button>

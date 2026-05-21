@@ -17,20 +17,22 @@ export type ReviewType = (typeof REVIEW_TYPES)[number];
 
 export const REVIEW_LABEL: Record<ReviewType, string> = {
   correct_campaign: 'Correct campaign',
-  false_reject: 'False reject',
-  false_positive: 'False positive',
   strong_opportunity: 'Strong opportunity',
   weak_opportunity: 'Weak opportunity',
   interesting_later: 'Interesting later',
+  false_reject: 'Wrongly rejected',
+  false_positive: 'Wrongly accepted',
 };
 
+// One-line tooltips shown on hover — explain what each rating means so
+// the operator doesn't have to guess.
 export const REVIEW_HINT: Record<ReviewType, string> = {
-  correct_campaign: 'Routing was right.',
-  false_reject: 'Rejected but should not have been — operator override.',
-  false_positive: 'Accepted but should not have been — over-routed.',
-  strong_opportunity: 'High-value lead worth chasing soon.',
-  weak_opportunity: 'Real but low-value — nurture only.',
-  interesting_later: 'Park; revisit when more signal exists.',
+  correct_campaign: 'The campaign assigned is right.',
+  strong_opportunity: 'High-value lead — chase soon.',
+  weak_opportunity: 'Real fit but low-value — nurture only.',
+  interesting_later: 'Park for now; revisit when more signal exists.',
+  false_reject: 'System rejected this lead but it should have been pursued.',
+  false_positive: 'System accepted this lead but it isn’t a real fit.',
 };
 
 // ---------------------------------------------------------------------------

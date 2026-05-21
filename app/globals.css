@@ -1387,12 +1387,28 @@ body:has(.drawer) .app-main { padding-right: 500px; }
   border-color: #059669;
 }
 .btn-success:hover { background: #047857; border-color: #047857; }
+/* Outlined success — used by reviewer feedback (correct campaign /
+   strong opportunity) when not yet selected. Coloured border so the
+   button still signals "positive" without filling the row with green. */
+.btn-success-outline {
+  color: var(--success);
+  border-color: var(--success-border);
+  background: var(--surface);
+}
+.btn-success-outline:hover { background: var(--success-soft); border-color: var(--success); }
 .btn-danger {
   color: var(--danger);
   border-color: var(--danger-border);
   background: var(--surface);
 }
 .btn-danger:hover { background: var(--danger-soft); border-color: var(--danger); }
+/* Solid danger — selected state of the "wrongly..." reviewer buttons. */
+.btn-danger-solid {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+.btn-danger-solid:hover { background: #991b1b; border-color: #991b1b; }
 .btn-ghost {
   background: transparent;
   border-color: transparent;
