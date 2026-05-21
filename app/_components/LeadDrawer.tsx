@@ -19,12 +19,24 @@ interface Props {
   evidence: LeadEvidenceSummary | null;
 }
 
-function emailStatusLabel(status: string | null): string {
-  if (!status) return 'no email';
-  if (status === 'extracted') return 'extracted';
+function emailStatusLabel(status: string | null, hasEmail: boolean): string {
+  if (!hasEmail) return 'no email';
+  // Legacy contacts (from Phase 1) have an email but a null status — they
+  // were extracted from the source feed, so treat as 'extracted'.
+  if (!status) return 'extracted';
   if (status === 'guessed') return 'guessed (unverified)';
-  if (status === 'verified') return 'verified';
   return status;
+}
+
+function readableSource(url: string | null): string {
+  if (!url) return 'unknown';
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/$/, '');
+    return path ? `${u.hostname}${path}` : `${u.hostname} (homepage)`;
+  } catch {
+    return url;
+  }
 }
 
 function domain(url: string | null): string | null {
@@ -273,8 +285,10 @@ export function LeadDrawer({ lead, signals, ai, currentReview, contacts, evidenc
                           <a href={`mailto:${c.email}`} className="contact-email">
                             {c.email}
                           </a>
-                          <span className={`email-status email-status-${c.emailStatus}`}>
-                            {emailStatusLabel(c.emailStatus)}
+                          <span
+                            className={`email-status email-status-${c.emailStatus ?? 'extracted'}`}
+                          >
+                            {emailStatusLabel(c.emailStatus, !!c.email)}
                           </span>
                           {c.emailType && (
                             <span className="email-type">{c.emailType.replace(/_/g, ' ')}</span>
@@ -285,7 +299,7 @@ export function LeadDrawer({ lead, signals, ai, currentReview, contacts, evidenc
                         <div className="contact-source">
                           source:{' '}
                           <a href={c.sourceUrl} target="_blank" rel="noreferrer">
-                            {new URL(c.sourceUrl).pathname || c.sourceUrl}
+                            {readableSource(c.sourceUrl)}
                           </a>
                         </div>
                       )}

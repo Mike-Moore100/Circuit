@@ -259,7 +259,9 @@ export function getContactsForLead(companyId: string): LeadContactBundle {
     emailStatus: c.email_status,
     linkedinUrl: c.linkedin_url,
     sourceUrl: c.source_url,
-    overallConfidence: c.overall_confidence ?? 0,
+    // Legacy Phase-1 contacts only populated `confidence`; fall back so the
+    // dashboard doesn't show 0 for a real Founder + email pair.
+    overallConfidence: c.overall_confidence ?? c.confidence ?? 0,
     isPrimary: Boolean(c.is_primary),
   }));
   const routes: LeadRoute[] = getContactRoutesForCompany(companyId, db).map(
