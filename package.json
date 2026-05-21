@@ -15,6 +15,8 @@
     "debug:signals": "tsx scripts/debugSignals.ts",
     "analyze:top-leads": "tsx scripts/analyzeTopLeads.ts",
     "debug:ai": "tsx scripts/debugAi.ts",
+    "validate:sample": "tsx scripts/validateSample.ts",
+    "debug:validation": "tsx scripts/debugValidation.ts",
     "db:reset": "tsx scripts/resetDb.ts",
     "test": "vitest run",
     "test:watch": "vitest"

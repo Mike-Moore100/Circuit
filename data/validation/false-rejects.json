@@ -1,0 +1,402 @@
+[
+  {
+    "companyId": "13bcfb7e-5a4c-4a59-bc07-06cca7ac53ff",
+    "company": "Recruitment Agency Co (London)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "03fae23f-3a88-4058-9001-69692e09699f",
+    "company": "London Recruitment Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "c7cd8d18-0f23-455c-825f-f222bab215d9",
+    "company": "Marketing Agency Co (Manchester)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "2bcb944a-58c9-4862-93c4-a0abfda4ad05",
+    "company": "Manchester Marketing Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "6f35b7cb-4260-45e7-a377-af4f6034d944",
+    "company": "Real Estate Agency Co (Birmingham)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "45a7bafb-ccae-4863-886b-5cedf8454ad5",
+    "company": "Birmingham Real Estate Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "d899698d-b167-4364-903e-86f16d2e8f89",
+    "company": "Accounting Firm Co (Leeds)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "6510c52a-0c5f-419b-8485-34c6bbe16249",
+    "company": "Leeds Accounting Firm Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "2cd1501b-2909-4112-9fc3-1e34b36f051c",
+    "company": "Business Consultant Co (Glasgow)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "37b3c091-2c77-4276-a213-dd0bd47d78f1",
+    "company": "Glasgow Business Consultant Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "71721b69-9ed2-46bd-84bc-9c4cd60325e4",
+    "company": "Ecommerce Agency Co (Edinburgh)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "f9ed0349-3c50-4029-815b-0ccc5e203b23",
+    "company": "Edinburgh Ecommerce Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "dae91988-8c04-4721-afa9-85c90fc5c049",
+    "company": "Web Design Agency Co (Cardiff)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "54593a2b-6ca8-41ae-989c-481f895ef945",
+    "company": "Cardiff Web Design Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "cb42ab5b-7c91-400e-862f-6989090b41ce",
+    "company": "Recruitment Agency Co (Newcastle)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "246d895a-59c0-40da-8888-8843438f50b4",
+    "company": "Newcastle Recruitment Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "98d797de-ae2f-4c05-a7b8-fed94ef0fe2a",
+    "company": "Marketing Agency Co (London)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "fa6ae176-7a44-4a58-9400-721389bad4b3",
+    "company": "London Marketing Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "c28c2204-8491-4538-ad36-b36f6b3dbe1a",
+    "company": "Real Estate Agency Co (Manchester)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "ead8f8f8-32e9-4469-93b0-c6e8aca06c2a",
+    "company": "Manchester Real Estate Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "c5aabfa9-37cd-4651-ac11-12c2ade17c77",
+    "company": "Accounting Firm Co (Birmingham)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "c8fc46c4-59fa-40fa-8907-e828dd74c7e2",
+    "company": "Birmingham Accounting Firm Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "7ab6ff6c-b834-42ed-a654-bb5723f5ea8d",
+    "company": "Business Consultant Co (Liverpool)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "096f7e8e-15d6-473a-8bc2-fb1fa061dc81",
+    "company": "Liverpool Business Consultant Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "db0d35d6-622f-4b19-b77d-c4ca60ac44f9",
+    "company": "Ecommerce Agency Co (Glasgow)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "42ad6eaf-b3f0-4ca4-b5e2-c2dada256977",
+    "company": "Glasgow Ecommerce Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "c482711e-ef46-43a0-85e0-d958b7c31e6f",
+    "company": "Web Design Agency Co (Edinburgh)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "5a92923a-b4b3-4e60-bce9-129cc5f95b7a",
+    "company": "Edinburgh Web Design Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "e316aee0-18a7-4211-af15-0e325c1fc168",
+    "company": "Recruitment Agency Co (Cardiff)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "1ed89588-49c9-42da-92da-4eff0c7634a0",
+    "company": "Cardiff Recruitment Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "c1b13906-9b18-4432-8278-92e58246484b",
+    "company": "Marketing Agency Co (Newcastle)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "9944a999-efa2-4860-a1ef-ecaf63541d2f",
+    "company": "Newcastle Marketing Agency Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 37,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 37"
+    ]
+  },
+  {
+    "companyId": "ef45642d-a905-4b99-b2da-9b541c45f50b",
+    "company": "Bookkeeping Firm Co (Bristol)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 36,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 36"
+    ]
+  },
+  {
+    "companyId": "8a711599-ffb8-4ca4-a51b-5115f5989e0b",
+    "company": "Bristol Bookkeeping Firm Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 36,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 36"
+    ]
+  },
+  {
+    "companyId": "e839d5d9-311c-4bf3-88ff-edc10fa17204",
+    "company": "Bookkeeping Firm Co (Leeds)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 36,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 36"
+    ]
+  },
+  {
+    "companyId": "c90decdd-164a-43dd-a342-85201b8f3920",
+    "company": "Leeds Bookkeeping Firm Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 36,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 36"
+    ]
+  },
+  {
+    "companyId": "f9be49ac-2c4f-4a72-ba90-531942aabf79",
+    "company": "Legal Firm Co (Liverpool)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 32,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 32"
+    ]
+  },
+  {
+    "companyId": "70b997e1-4810-4f6f-b7cd-4c00cdb5e66f",
+    "company": "Liverpool Legal Firm Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 32,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 32"
+    ]
+  },
+  {
+    "companyId": "de30a38b-de96-4fcb-bbf8-16145a78a24b",
+    "company": "Legal Firm Co (Bristol)",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 32,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 32"
+    ]
+  },
+  {
+    "companyId": "1a51109f-442b-49bc-8a73-b00817e82471",
+    "company": "Bristol Legal Firm Partners",
+    "primaryCampaign": "WEB_REBUILD",
+    "finalScore": 32,
+    "flagReason": "In an actionable campaign but final score is very low — confirm the routing isn’t over-eager.",
+    "evidence": [
+      "final score 32"
+    ]
+  }
+]

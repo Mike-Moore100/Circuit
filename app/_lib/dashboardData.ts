@@ -3,10 +3,25 @@ import { getDb } from '../../src/db/client';
 import {
   getAiAnalysisStats,
   getInspectionStats,
+  getLatestReviewByCompany,
   getRecentSourceRuns,
 } from '../../src/db/repository';
 import { CAMPAIGN_VALUES, CAMPAIGN_LABEL } from '../../src/scoring/campaignTypes';
 import type { Campaign } from '../../src/scoring/campaignTypes';
+import {
+  computeCampaignMetrics,
+  computeReviewTotals,
+  computeSourceQuality,
+  computeTopReasons,
+} from '../../src/validation/metrics';
+import { detectCandidateFalseRejects } from '../../src/validation/falseRejectDetector';
+import type {
+  CampaignMetric,
+  FalseRejectCandidate,
+  ReviewType,
+  SourceQuality,
+  TopReason,
+} from '../../src/validation/types';
 import type {
   Company,
   Priority,
@@ -114,6 +129,16 @@ export interface AiOverview {
   feedback: Record<string, number>;
 }
 
+export interface ValidationOverview {
+  campaignMetrics: CampaignMetric[];
+  sourceQuality: SourceQuality[];
+  topReasons: Record<Campaign, TopReason[]>;
+  topRejectionReasons: TopReason[];
+  falseRejectCandidates: FalseRejectCandidate[];
+  reviewTotals: Record<ReviewType, number>;
+  reviewByCompany: Record<string, string>;
+}
+
 export interface DashboardData {
   totals: { processed: number; accepted: number; rejected: number };
   priorityCounts: Record<Priority, number>;
@@ -130,6 +155,7 @@ export interface DashboardData {
   // companyId → latest AI analysis (if any)
   aiByCompany: Record<string, AiAnalysisPanel>;
   ai: AiOverview;
+  validation: ValidationOverview;
 }
 
 function parseReasons(raw: string | null): PersistedReasons | null {
@@ -451,6 +477,18 @@ export async function getDashboardData(): Promise<DashboardData> {
     feedback: aiStats.feedback,
   };
 
+  // ---- Validation overview ------------------------------------------------
+  const campaignMetrics = computeCampaignMetrics(db);
+  const sourceQuality = computeSourceQuality(db);
+  const topReasons = computeTopReasons(db);
+  const reviewTotals = computeReviewTotals(db);
+  const falseRejectCandidates = detectCandidateFalseRejects([...reviewQueue, ...rejected]);
+  const latestReviews = getLatestReviewByCompany(db);
+  const reviewByCompany: Record<string, string> = {};
+  for (const [companyId, review] of latestReviews) {
+    reviewByCompany[companyId] = review.review_type;
+  }
+
   return {
     totals: {
       processed: all.length,
@@ -467,5 +505,14 @@ export async function getDashboardData(): Promise<DashboardData> {
     verifiedSignalsByCompany,
     aiByCompany,
     ai: aiOverview,
+    validation: {
+      campaignMetrics,
+      sourceQuality,
+      topReasons: topReasons.byCampaign,
+      topRejectionReasons: topReasons.trueRejections,
+      falseRejectCandidates,
+      reviewTotals,
+      reviewByCompany,
+    },
   };
 }

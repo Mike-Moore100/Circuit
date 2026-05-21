@@ -152,4 +152,29 @@ CREATE TABLE IF NOT EXISTS ai_analyses (
 CREATE INDEX IF NOT EXISTS ai_analyses_company_idx     ON ai_analyses(company_id);
 CREATE UNIQUE INDEX IF NOT EXISTS ai_analyses_hash_idx ON ai_analyses(company_id, input_hash);
 CREATE INDEX IF NOT EXISTS ai_analyses_created_at_idx  ON ai_analyses(created_at DESC);
+
+-- Phase 7: validation sprint — reviewer feedback + metric snapshots
+CREATE TABLE IF NOT EXISTS lead_reviews (
+  id                 TEXT PRIMARY KEY,
+  company_id         TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  review_type        TEXT NOT NULL,
+  previous_campaign  TEXT,
+  corrected_campaign TEXT,
+  reviewer_notes     TEXT,
+  created_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS lead_reviews_company_idx ON lead_reviews(company_id);
+CREATE INDEX IF NOT EXISTS lead_reviews_type_idx    ON lead_reviews(review_type);
+
+CREATE TABLE IF NOT EXISTS review_metrics (
+  id          TEXT PRIMARY KEY,
+  metric_type TEXT NOT NULL,
+  value       REAL NOT NULL,
+  source      TEXT,
+  created_at  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS review_metrics_type_idx       ON review_metrics(metric_type);
+CREATE INDEX IF NOT EXISTS review_metrics_created_at_idx ON review_metrics(created_at DESC);
 `;

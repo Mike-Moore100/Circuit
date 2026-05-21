@@ -691,6 +691,100 @@ export function getAllAnalysesForCompany(
   }>;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 7 — Lead reviews + review metrics
+// ---------------------------------------------------------------------------
+export interface LeadReviewRow {
+  id: string;
+  company_id: string;
+  review_type: string;
+  previous_campaign: string | null;
+  corrected_campaign: string | null;
+  reviewer_notes: string | null;
+  created_at: string;
+}
+
+export interface InsertLeadReviewInput {
+  companyId: string;
+  reviewType: string;
+  previousCampaign?: string | null;
+  correctedCampaign?: string | null;
+  reviewerNotes?: string | null;
+}
+
+export function insertLeadReview(
+  input: InsertLeadReviewInput,
+  db: Database = getDb(),
+): LeadReviewRow {
+  const row: LeadReviewRow = {
+    id: randomUUID(),
+    company_id: input.companyId,
+    review_type: input.reviewType,
+    previous_campaign: input.previousCampaign ?? null,
+    corrected_campaign: input.correctedCampaign ?? null,
+    reviewer_notes: input.reviewerNotes ?? null,
+    created_at: now(),
+  };
+  db.prepare(
+    `INSERT INTO lead_reviews
+       (id, company_id, review_type, previous_campaign, corrected_campaign,
+        reviewer_notes, created_at)
+     VALUES (@id, @company_id, @review_type, @previous_campaign,
+             @corrected_campaign, @reviewer_notes, @created_at)`,
+  ).run(row);
+  return row;
+}
+
+export function getLatestReviewByCompany(
+  db: Database = getDb(),
+): Map<string, LeadReviewRow> {
+  const rows = db
+    .prepare(
+      `SELECT lr.*
+         FROM lead_reviews lr
+         JOIN (
+           SELECT company_id, MAX(created_at) AS created_at
+             FROM lead_reviews
+            GROUP BY company_id
+         ) latest
+           ON latest.company_id = lr.company_id
+          AND latest.created_at = lr.created_at`,
+    )
+    .all() as LeadReviewRow[];
+  const map = new Map<string, LeadReviewRow>();
+  for (const r of rows) map.set(r.company_id, r);
+  return map;
+}
+
+export function countReviewsByType(
+  db: Database = getDb(),
+): Record<string, number> {
+  const rows = db
+    .prepare(
+      'SELECT review_type, COUNT(*) AS n FROM lead_reviews GROUP BY review_type',
+    )
+    .all() as Array<{ review_type: string; n: number }>;
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.review_type] = r.n;
+  return out;
+}
+
+export interface InsertReviewMetricInput {
+  metricType: string;
+  value: number;
+  source?: string | null;
+}
+
+export function insertReviewMetric(
+  input: InsertReviewMetricInput,
+  db: Database = getDb(),
+): void {
+  db.prepare(
+    `INSERT INTO review_metrics (id, metric_type, value, source, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(randomUUID(), input.metricType, input.value, input.source ?? null, now());
+}
+
 export function getAiAnalysisStats(db: Database = getDb()): {
   total: number;
   ok: number;

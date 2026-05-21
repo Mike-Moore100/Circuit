@@ -6,6 +6,7 @@ import {
 } from './_lib/dashboardData';
 import { ReviewActions } from './_components/ReviewActions';
 import { AiFeedback } from './_components/AiFeedback';
+import { LeadReviewActions } from './_components/LeadReviewActions';
 import { Avatar } from './_components/Avatar';
 import { PriorityDonut } from './_components/PriorityDonut';
 import {
@@ -229,6 +230,11 @@ function confidenceBand(c: number): 'high' | 'medium' | 'low' {
   if (c >= 70) return 'high';
   if (c >= 50) return 'medium';
   return 'low';
+}
+
+function fmtPct(n: number | null): string {
+  if (n === null) return '—';
+  return `${Math.round(n * 100)}%`;
 }
 
 function fmtDuration(ms: number | null): string {
@@ -461,6 +467,134 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      {/* ============ Validation panel ============ */}
+      <section className="section" id="validation">
+        <div className="section-head">
+          <h2 className="section-title">Validation</h2>
+          <span className="section-meta">
+            How well the segmentation aligns with reality — reviewer feedback
+            drives the false-positive / false-reject rates
+          </span>
+        </div>
+
+        <div className="panel">
+          <table className="runs-table">
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Total</th>
+                <th>Avg score</th>
+                <th>Reviewed</th>
+                <th>Correct %</th>
+                <th>False reject %</th>
+                <th>False positive %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.validation.campaignMetrics.map((m) => (
+                <tr key={m.campaign}>
+                  <td>
+                    <span className={`campaign-tag campaign-${m.campaign}`}>
+                      {CAMPAIGN_LABEL[m.campaign]}
+                    </span>
+                  </td>
+                  <td className="num">{m.total}</td>
+                  <td className="num">{m.avgFinalScore || '—'}</td>
+                  <td className="num">{m.reviewedTotal}</td>
+                  <td className="num">{fmtPct(m.correctRate)}</td>
+                  <td className="num">{fmtPct(m.falseRejectRate)}</td>
+                  <td className="num">{fmtPct(m.falsePositiveRate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {data.validation.sourceQuality.length > 0 && (
+          <details className="disclosure" style={{ marginTop: 12 }}>
+            <summary>
+              Source quality
+              <span className="summary-meta">
+                {data.validation.sourceQuality.length} source{data.validation.sourceQuality.length === 1 ? '' : 's'} feeding the pipeline
+              </span>
+            </summary>
+            <div className="disclosure-body">
+              <table className="runs-table">
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Total leads</th>
+                    <th>Avg score</th>
+                    <th>Inspection failure %</th>
+                    <th>Strong opportunities</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.validation.sourceQuality.map((s) => (
+                    <tr key={s.source}>
+                      <td>{s.source}</td>
+                      <td className="num">{s.totalLeads}</td>
+                      <td className="num">{s.avgFinalScore || '—'}</td>
+                      <td className="num">{fmtPct(s.inspectionFailureRate)}</td>
+                      <td className="num">{s.strongOpportunities}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
+
+        {data.validation.falseRejectCandidates.length > 0 && (
+          <details className="disclosure">
+            <summary>
+              Suspicious leads (sanity check)
+              <span className="summary-meta">
+                {data.validation.falseRejectCandidates.length} flagged for manual review
+              </span>
+            </summary>
+            <div className="disclosure-body">
+              <table className="runs-table">
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th>Campaign</th>
+                    <th>Score</th>
+                    <th>Why flagged</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.validation.falseRejectCandidates.map((c) => (
+                    <tr key={c.companyId}>
+                      <td>{c.company}</td>
+                      <td>
+                        <span className={`campaign-tag campaign-${c.primaryCampaign}`}>
+                          {CAMPAIGN_LABEL[c.primaryCampaign]}
+                        </span>
+                      </td>
+                      <td className="num">{c.finalScore}</td>
+                      <td>
+                        {c.flagReason}
+                        {c.evidence.length > 0 && (
+                          <ul className="reason-list" style={{ marginTop: 6 }}>
+                            {c.evidence.map((e, i) => (
+                              <li key={i} className="reason pos">
+                                <span className="delta">·</span>
+                                <span className="label">{e}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
+      </section>
+
       {/* ============ Review queue ============ */}
       <section className="section" id="review">
         <div className="section-head">
@@ -573,6 +707,11 @@ export default async function DashboardPage() {
                       </td>
                       <td className="col-actions">
                         <ReviewActions companyId={row.companyId} status={row.status} />
+                        <LeadReviewActions
+                          companyId={row.companyId}
+                          primaryCampaign={row.primaryCampaign}
+                          currentReview={data.validation.reviewByCompany[row.companyId] ?? null}
+                        />
                       </td>
                     </tr>
                   );
