@@ -190,6 +190,134 @@ export function evaluateRules(lead: RawLead): RuleScoreBreakdown {
     }
   }
 
+  // ---- Verified website signals ---------------------------------------
+  // These are typed signals produced by the inspection module, so we credit
+  // them by exact type rather than text matching to avoid double-counting
+  // with the haystack heuristics above.
+  const verifiedTypes = new Set(
+    lead.signals.filter((s) => s.type.startsWith('verified.')).map((s) => s.type),
+  );
+
+  const verifiedRule = (
+    type: string,
+    weight: number,
+    code: string,
+    label: string,
+    isRejection = false,
+  ) => {
+    if (!verifiedTypes.has(type)) return;
+    score += weight;
+    (isRejection ? rejectionReasons : reasons).push({ code, label, delta: weight });
+  };
+
+  verifiedRule(
+    'verified.website_loads',
+    RULE_WEIGHTS.VERIFIED_WEBSITE_LOADS,
+    'verified_website_loads',
+    'Verified: website loaded successfully',
+  );
+  verifiedRule(
+    'verified.has_contact_page',
+    RULE_WEIGHTS.VERIFIED_HAS_CONTACT_PAGE,
+    'verified_contact_page',
+    'Verified: dedicated contact page',
+  );
+  verifiedRule(
+    'verified.has_contact_form',
+    RULE_WEIGHTS.VERIFIED_HAS_CONTACT_FORM,
+    'verified_contact_form',
+    'Verified: contact form with email input',
+  );
+  verifiedRule(
+    'verified.has_booking_link',
+    RULE_WEIGHTS.VERIFIED_HAS_BOOKING_LINK,
+    'verified_booking',
+    'Verified: booking / scheduling surface',
+  );
+  verifiedRule(
+    'verified.has_services_page',
+    RULE_WEIGHTS.VERIFIED_HAS_SERVICES_PAGE,
+    'verified_services_page',
+    'Verified: services page',
+  );
+  verifiedRule(
+    'verified.has_multiple_service_pages',
+    RULE_WEIGHTS.VERIFIED_HAS_MULTIPLE_SERVICE_PAGES,
+    'verified_multiple_services',
+    'Verified: depth — multiple service pages',
+  );
+  verifiedRule(
+    'verified.has_careers_page',
+    RULE_WEIGHTS.VERIFIED_HAS_CAREERS_PAGE,
+    'verified_careers',
+    'Verified: careers / hiring page (growth signal)',
+  );
+  verifiedRule(
+    'verified.has_support_or_help',
+    RULE_WEIGHTS.VERIFIED_HAS_SUPPORT_OR_HELP,
+    'verified_support',
+    'Verified: support / help section (likely volume)',
+  );
+  verifiedRule(
+    'verified.has_ecommerce_signals',
+    RULE_WEIGHTS.VERIFIED_HAS_ECOMMERCE_SIGNALS,
+    'verified_ecommerce',
+    'Verified: ecommerce indicators',
+  );
+  verifiedRule(
+    'verified.has_manual_workflow_language',
+    RULE_WEIGHTS.VERIFIED_HAS_MANUAL_WORKFLOW_LANGUAGE,
+    'verified_manual_workflow',
+    'Verified: manual-workflow phrasing in copy',
+  );
+  verifiedRule(
+    'verified.high_automation_fit',
+    RULE_WEIGHTS.VERIFIED_HIGH_AUTOMATION_FIT,
+    'verified_automation_fit',
+    'Verified: high automation-fit phrasing',
+  );
+  verifiedRule(
+    'verified.likely_service_business',
+    RULE_WEIGHTS.VERIFIED_LIKELY_SERVICE_BUSINESS,
+    'verified_service_business',
+    'Verified: looks like a service business',
+  );
+  verifiedRule(
+    'verified.likely_saas',
+    RULE_WEIGHTS.VERIFIED_LIKELY_SAAS,
+    'verified_saas',
+    'Verified: looks like a SaaS',
+  );
+  verifiedRule(
+    'verified.likely_local_smb',
+    RULE_WEIGHTS.VERIFIED_LIKELY_LOCAL_SMB,
+    'verified_local_smb',
+    'Verified: looks like a local SMB',
+  );
+
+  // Penalties
+  verifiedRule(
+    'verified.website_failed',
+    RULE_WEIGHTS.VERIFIED_WEBSITE_FAILED,
+    'verified_website_failed',
+    'Verified: website failed to load',
+    true,
+  );
+  verifiedRule(
+    'verified.has_ai_automation_language',
+    RULE_WEIGHTS.VERIFIED_AI_AUTOMATION_PROVIDER_PENALTY,
+    'verified_ai_provider',
+    'Verified: IS an AI / automation provider (competitor, not buyer)',
+    true,
+  );
+  verifiedRule(
+    'verified.low_digital_maturity',
+    RULE_WEIGHTS.VERIFIED_LOW_DIGITAL_MATURITY,
+    'verified_low_digital_maturity',
+    'Verified: low digital maturity (thin website)',
+    true,
+  );
+
   const finalScore = clamp(Math.round(score));
   return {
     ruleScore: finalScore,

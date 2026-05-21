@@ -80,6 +80,25 @@ function scoreManualWorkload(lead: RawLead, hay: string): ComponentResult {
       delta: bonus,
     });
   }
+  // Verified signals from website inspection give explicit, higher-confidence
+  // boosts.
+  const verified = new Set(lead.signals.map((s) => s.type));
+  if (verified.has('verified.has_manual_workflow_language')) {
+    score += 25;
+    reasons.push({
+      code: 'manual_workload_verified',
+      label: 'Verified manual-workflow phrasing on website',
+      delta: 25,
+    });
+  }
+  if (verified.has('verified.high_automation_fit')) {
+    score += 15;
+    reasons.push({
+      code: 'automation_fit_verified',
+      label: 'Verified automation-fit phrasing on website',
+      delta: 15,
+    });
+  }
   return { score: clamp(score), reasons };
 }
 
@@ -103,6 +122,23 @@ function scoreDecisionMakerAccess(lead: RawLead): ComponentResult {
   if (lead.linkedinUrl) {
     score += 10;
     reasons.push({ code: 'dm_linkedin', label: 'LinkedIn handle available', delta: 10 });
+  }
+  const verified = new Set(lead.signals.map((s) => s.type));
+  if (verified.has('verified.has_contact_form')) {
+    score += 15;
+    reasons.push({
+      code: 'dm_contact_form',
+      label: 'Verified contact form available',
+      delta: 15,
+    });
+  }
+  if (verified.has('verified.has_booking_link')) {
+    score += 15;
+    reasons.push({
+      code: 'dm_booking',
+      label: 'Verified booking / scheduling link',
+      delta: 15,
+    });
   }
   return { score: clamp(score), reasons };
 }
@@ -159,6 +195,25 @@ function scoreAutomationFit(lead: RawLead, hay: string): ComponentResult {
       code: 'fit_industry',
       label: 'Industry is a known automation buyer',
       delta: 20,
+    });
+  }
+  // Penalise hard if the lead IS itself an AI/automation provider — they're a
+  // competitor, not a buyer.
+  const verified = new Set(lead.signals.map((s) => s.type));
+  if (verified.has('verified.has_ai_automation_language')) {
+    score -= 40;
+    reasons.push({
+      code: 'fit_ai_provider',
+      label: 'Lead is itself an AI/automation provider — competitor, not buyer',
+      delta: -40,
+    });
+  }
+  if (verified.has('verified.likely_service_business')) {
+    score += 10;
+    reasons.push({
+      code: 'fit_service_business',
+      label: 'Verified: service business',
+      delta: 10,
     });
   }
   return { score: clamp(score), reasons };

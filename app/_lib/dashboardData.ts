@@ -1,10 +1,14 @@
 import { getDb } from '../../src/db/client';
-import { getRecentSourceRuns } from '../../src/db/repository';
+import {
+  getInspectionStats,
+  getRecentSourceRuns,
+} from '../../src/db/repository';
 import type {
   Company,
   Priority,
   ReviewQueueRow,
   ScoreReason,
+  Signal,
   SourceRun,
 } from '../../src/types';
 
@@ -15,6 +19,21 @@ interface RawJoinedRow extends Company {
   priority: Priority | null;
   reasons_json: string | null;
   review_status: string | null;
+}
+
+export interface InspectionCounts {
+  inspected: number;
+  failed: number;
+  highAutomationFit: number;
+  withContactForm: number;
+  withBookingLink: number;
+  aiProvider: number;
+}
+
+export interface LeadVerifiedSignal {
+  type: string;
+  value: string;
+  confidence: number;
 }
 
 interface PersistedReasons {
@@ -51,6 +70,9 @@ export interface DashboardData {
   reviewQueue: ReviewQueueRow[];
   rejected: ReviewQueueRow[];
   sourceRuns: SourceRunSummary[];
+  inspection: InspectionCounts;
+  // companyId → array of verified signals for that company.
+  verifiedSignalsByCompany: Record<string, LeadVerifiedSignal[]>;
 }
 
 function parseReasons(raw: string | null): PersistedReasons | null {
@@ -177,6 +199,55 @@ export async function getDashboardData(): Promise<DashboardData> {
     };
   });
 
+  // Verified signals per company (only those that came from inspection).
+  const verifiedRows = db
+    .prepare(
+      `SELECT company_id, type, value, confidence
+         FROM signals
+        WHERE source = 'website_inspection'
+        ORDER BY created_at DESC`,
+    )
+    .all() as Array<{
+    company_id: string;
+    type: string;
+    value: string;
+    confidence: number;
+  }>;
+
+  const verifiedSignalsByCompany: Record<string, LeadVerifiedSignal[]> = {};
+  for (const r of verifiedRows) {
+    (verifiedSignalsByCompany[r.company_id] ??= []).push({
+      type: r.type,
+      value: r.value,
+      confidence: r.confidence,
+    });
+  }
+
+  const inspectionStats = getInspectionStats(db);
+  const distinctCompanyTypes = (predicate: (t: string) => boolean) =>
+    new Set(
+      verifiedRows
+        .filter((r) => predicate(r.type))
+        .map((r) => r.company_id),
+    ).size;
+
+  const inspection: InspectionCounts = {
+    inspected: inspectionStats.inspected,
+    failed: inspectionStats.failed,
+    highAutomationFit: distinctCompanyTypes(
+      (t) => t === 'verified.high_automation_fit',
+    ),
+    withContactForm: distinctCompanyTypes(
+      (t) => t === 'verified.has_contact_form',
+    ),
+    withBookingLink: distinctCompanyTypes(
+      (t) => t === 'verified.has_booking_link',
+    ),
+    aiProvider: distinctCompanyTypes(
+      (t) => t === 'verified.has_ai_automation_language',
+    ),
+  };
+
   return {
     totals: {
       processed: all.length,
@@ -187,5 +258,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     reviewQueue,
     rejected,
     sourceRuns,
+    inspection,
+    verifiedSignalsByCompany,
   };
 }

@@ -401,3 +401,139 @@ export function getRecentSourceRuns(
     .prepare('SELECT * FROM source_runs ORDER BY started_at DESC LIMIT ?')
     .all(limit) as SourceRun[];
 }
+
+// ---------------------------------------------------------------------------
+// Website inspections cache
+// ---------------------------------------------------------------------------
+export interface WebsiteInspectionRecord {
+  id: string;
+  company_id: string | null;
+  url: string;
+  domain: string | null;
+  status: string;
+  status_code: number | null;
+  title: string | null;
+  meta_description: string | null;
+  content_length: number | null;
+  signals_json: string;
+  fingerprint_json: string | null;
+  error_message: string | null;
+  fetched_at: string;
+}
+
+export function getInspectionByDomain(
+  domain: string,
+  db: Database = getDb(),
+): WebsiteInspectionRecord | undefined {
+  return db
+    .prepare('SELECT * FROM website_inspections WHERE domain = ?')
+    .get(domain) as WebsiteInspectionRecord | undefined;
+}
+
+export function getInspectionByCompany(
+  companyId: string,
+  db: Database = getDb(),
+): WebsiteInspectionRecord | undefined {
+  return db
+    .prepare('SELECT * FROM website_inspections WHERE company_id = ? ORDER BY fetched_at DESC LIMIT 1')
+    .get(companyId) as WebsiteInspectionRecord | undefined;
+}
+
+export interface UpsertInspectionInput {
+  companyId: string | null;
+  url: string;
+  domain: string | null;
+  status: string;
+  statusCode: number | null;
+  title: string | null;
+  metaDescription: string | null;
+  contentLength: number | null;
+  signalsJson: string;
+  fingerprintJson: string | null;
+  errorMessage: string | null;
+}
+
+export function upsertInspection(
+  input: UpsertInspectionInput,
+  db: Database = getDb(),
+): WebsiteInspectionRecord {
+  const fetchedAt = now();
+  if (input.domain) {
+    const existing = getInspectionByDomain(input.domain, db);
+    if (existing) {
+      const updated: WebsiteInspectionRecord = {
+        ...existing,
+        company_id: input.companyId ?? existing.company_id,
+        url: input.url,
+        status: input.status,
+        status_code: input.statusCode,
+        title: input.title,
+        meta_description: input.metaDescription,
+        content_length: input.contentLength,
+        signals_json: input.signalsJson,
+        fingerprint_json: input.fingerprintJson,
+        error_message: input.errorMessage,
+        fetched_at: fetchedAt,
+      };
+      db.prepare(
+        `UPDATE website_inspections SET
+            company_id       = @company_id,
+            url              = @url,
+            status           = @status,
+            status_code      = @status_code,
+            title            = @title,
+            meta_description = @meta_description,
+            content_length   = @content_length,
+            signals_json     = @signals_json,
+            fingerprint_json = @fingerprint_json,
+            error_message    = @error_message,
+            fetched_at       = @fetched_at
+          WHERE id = @id`,
+      ).run(updated);
+      return updated;
+    }
+  }
+  const record: WebsiteInspectionRecord = {
+    id: randomUUID(),
+    company_id: input.companyId,
+    url: input.url,
+    domain: input.domain,
+    status: input.status,
+    status_code: input.statusCode,
+    title: input.title,
+    meta_description: input.metaDescription,
+    content_length: input.contentLength,
+    signals_json: input.signalsJson,
+    fingerprint_json: input.fingerprintJson,
+    error_message: input.errorMessage,
+    fetched_at: fetchedAt,
+  };
+  db.prepare(
+    `INSERT INTO website_inspections
+       (id, company_id, url, domain, status, status_code, title, meta_description,
+        content_length, signals_json, fingerprint_json, error_message, fetched_at)
+     VALUES
+       (@id, @company_id, @url, @domain, @status, @status_code, @title, @meta_description,
+        @content_length, @signals_json, @fingerprint_json, @error_message, @fetched_at)`,
+  ).run(record);
+  return record;
+}
+
+export function getInspectionStats(db: Database = getDb()): {
+  inspected: number;
+  failed: number;
+  byStatus: Record<string, number>;
+} {
+  const rows = db
+    .prepare('SELECT status, COUNT(*) AS n FROM website_inspections GROUP BY status')
+    .all() as Array<{ status: string; n: number }>;
+  const byStatus: Record<string, number> = {};
+  let inspected = 0;
+  let failed = 0;
+  for (const r of rows) {
+    byStatus[r.status] = r.n;
+    inspected += r.n;
+    if (r.status === 'failed' || r.status === 'timeout') failed += r.n;
+  }
+  return { inspected, failed, byStatus };
+}

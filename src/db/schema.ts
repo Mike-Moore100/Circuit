@@ -92,4 +92,27 @@ CREATE TABLE IF NOT EXISTS source_runs (
 
 CREATE INDEX IF NOT EXISTS source_runs_source_idx     ON source_runs(source);
 CREATE INDEX IF NOT EXISTS source_runs_started_at_idx ON source_runs(started_at DESC);
+
+CREATE TABLE IF NOT EXISTS website_inspections (
+  id               TEXT PRIMARY KEY,
+  company_id       TEXT REFERENCES companies(id) ON DELETE SET NULL,
+  url              TEXT NOT NULL,
+  domain           TEXT,
+  status           TEXT NOT NULL,
+  status_code      INTEGER,
+  title            TEXT,
+  meta_description TEXT,
+  content_length   INTEGER,
+  signals_json     TEXT NOT NULL,
+  fingerprint_json TEXT,
+  error_message    TEXT,
+  fetched_at       TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS website_inspections_domain_idx
+  ON website_inspections(domain) WHERE domain IS NOT NULL;
+CREATE INDEX IF NOT EXISTS website_inspections_company_idx
+  ON website_inspections(company_id);
+CREATE INDEX IF NOT EXISTS website_inspections_fetched_at_idx
+  ON website_inspections(fetched_at DESC);
 `;

@@ -28,6 +28,18 @@ export const config = {
     // Set to "1" to force the mock provider even with an API key present.
     forceMock: process.env.GOOGLE_MAPS_FORCE_MOCK === '1',
   },
+
+  websiteInspection: {
+    enabled: (process.env.WEBSITE_INSPECTION_ENABLED ?? '1') !== '0',
+    timeoutMs: envInt('WEBSITE_INSPECTION_TIMEOUT_MS', 10000),
+    maxPagesPerSite: envInt('WEBSITE_INSPECTION_MAX_PAGES_PER_SITE', 3),
+    usePlaywright: process.env.WEBSITE_INSPECTION_USE_PLAYWRIGHT === '1',
+    cacheTtlDays: envInt('WEBSITE_INSPECTION_CACHE_TTL_DAYS', 7),
+    concurrency: envInt('WEBSITE_INSPECTION_CONCURRENCY', 4),
+    userAgent:
+      process.env.WEBSITE_INSPECTION_USER_AGENT ??
+      'CircuitInspector/0.1 (+lead-research bot; non-commercial; respect robots)',
+  },
 } as const;
 
 export type CircuitConfig = typeof config;

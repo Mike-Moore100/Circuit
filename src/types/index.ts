@@ -33,13 +33,20 @@ export type RawLead = z.infer<typeof RawLeadSchema>;
 // ---------------------------------------------------------------------------
 // Source connector contract.
 // ---------------------------------------------------------------------------
-export const SourceFetchOptionsSchema = z.object({
-  limit: z.number().int().positive().optional(),
-  industry: z.string().optional(),
-  location: z.string().optional(),
-  query: z.string().optional(),
-});
-export type SourceFetchOptions = z.infer<typeof SourceFetchOptionsSchema>;
+export const SourceFetchOptionsSchema = z
+  .object({
+    limit: z.number().int().positive().optional(),
+    industry: z.string().optional(),
+    location: z.string().optional(),
+    query: z.string().optional(),
+  })
+  .passthrough();
+// Source-specific connectors (e.g. Google Maps) accept additional fields like
+// `categories` or `maxSearches`; allow them through the structural type so
+// callers don't need a cast at every site.
+export type SourceFetchOptions = z.infer<typeof SourceFetchOptionsSchema> & {
+  [key: string]: unknown;
+};
 
 export interface SourceFetchResult {
   leads: RawLead[];

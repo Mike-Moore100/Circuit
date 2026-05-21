@@ -3,9 +3,10 @@
 A low-cost AI lead sourcing and opportunity intelligence system for a small AI development /
 automation agency.
 
-- **Phase 1** built the explainable scoring foundation on mocked data.
-- **Phase 2** adds the first real automatic source connector (Google Maps / Google Places),
-  per-source run tracking, and dashboard review actions.
+- **Phase 1** — explainable scoring foundation on mocked data.
+- **Phase 2** — Google Maps / Places source, per-source run tracking, review actions.
+- **Phase 3** — Verified website signals: lightweight site inspection between dedupe and
+  scoring, with explainable score deltas and dashboard visibility.
 
 ## Setup
 
@@ -29,14 +30,22 @@ npm run pipeline
 # 3. Run the Google Maps source (live API call if key is set; falls back to mock otherwise).
 npm run pipeline:google-maps
 
-# 4. Per-lead score breakdowns.
+# 4. Inspect (or re-inspect) every known company's website. Respects the cache.
+npm run inspect:websites
+npm run inspect:websites -- --force         # ignore the cache
+npm run inspect:websites -- --limit 25      # only the first N
+
+# 5. Per-lead score breakdowns.
 npm run debug:score
 npm run debug:score -- "Lumen & Co Marketing"
 
-# 5. All tests.
+# 6. Per-lead signal breakdown (raw source + verified inspection).
+npm run debug:signals -- "Lumen & Co Marketing"
+
+# 7. All tests.
 npm test
 
-# 6. Internal monitoring dashboard.
+# 8. Internal monitoring dashboard.
 npm run dev   # → http://localhost:3000
 ```
 
@@ -56,6 +65,18 @@ npm run dev   # → http://localhost:3000
 | Review export | `src/review/{reviewQueue,exportReviewQueue}.ts` | `data/outputs/review-queue.{json,csv}` |
 | Debug tools | `src/debug/*`, `scripts/debugScore.ts` | Explainable per-lead breakdown |
 | Dashboard | `app/page.tsx` | Minimal operator view |
+
+### Phase 3 — Verified website signals (`tests/websiteSignals.test.ts` + `tests/inspectionScoring.test.ts`, 14 cases)
+
+| Area | File(s) | Notes |
+|---|---|---|
+| Inspector | `src/inspection/websiteInspector.ts` | Native `fetch` + `AbortController` timeout + follow-redirect; parses with `node-html-parser`; optionally follows 1–2 internal pages (contact / services / careers) |
+| Signal extraction | `src/inspection/extractWebsiteSignals.ts` | Pure function over `PageFingerprint[]` — easy to unit-test |
+| Cache + persistence | `src/inspection/inspect.ts`, `src/db/schema.ts`, `src/db/repository.ts` | New `website_inspections` table keyed by domain, TTL-driven freshness, signals fanned out into the `signals` table with `source='website_inspection'` |
+| Scoring | `src/scoring/scoringConfig.ts`, `src/filters/ruleBasedFilter.ts`, `src/scoring/intentScoring.ts` | Each verified signal type has an explicit weight; intent components consume contact-form / booking / manual-workflow / AI-provider verifies directly |
+| Pipeline | `src/pipeline/runLeadSourcingPipeline.ts` | Inspection runs in parallel between dedupe and scoring with `mapWithConcurrency`; falls through on errors |
+| CLI | `scripts/inspectWebsites.ts`, `scripts/debugSignals.ts` | `npm run inspect:websites` (re-inspect known sites), `npm run debug:signals` (per-lead signal dump) |
+| Dashboard | `app/page.tsx`, `app/_lib/dashboardData.ts` | Inspection counts cards + verified-signals expander per lead |
 
 ### Phase 2 — Google Maps source (`tests/googleMapsSource.test.ts`, 9 cases)
 
@@ -120,13 +141,67 @@ without spending any quota.
 
 Override per-run by passing `{ categories, locations }` to `googleMapsSource.fetchLeads`.
 
+## Configuring website inspection (Phase 3)
+
+```ini
+WEBSITE_INSPECTION_ENABLED=1
+WEBSITE_INSPECTION_TIMEOUT_MS=10000
+WEBSITE_INSPECTION_MAX_PAGES_PER_SITE=3
+WEBSITE_INSPECTION_USE_PLAYWRIGHT=0          # not implemented yet
+WEBSITE_INSPECTION_CACHE_TTL_DAYS=7
+WEBSITE_INSPECTION_CONCURRENCY=4
+# WEBSITE_INSPECTION_USER_AGENT="CircuitInspector/0.1"
+```
+
+The inspector:
+
+- uses native `fetch` (Node 18+) with an `AbortController` timeout — no Playwright
+  unless `WEBSITE_INSPECTION_USE_PLAYWRIGHT=1` (stub).
+- follows redirects, parses HTML with `node-html-parser`, extracts title / meta /
+  visible text / `<a>` links / `<form>` inputs.
+- optionally follows the top internal links (`/contact`, `/services`, `/pricing`,
+  `/careers`) up to `MAX_PAGES_PER_SITE - 1` follow-ups per site.
+- caches the result by domain in `website_inspections`; subsequent runs reuse it
+  until the TTL elapses or `--force` is passed.
+- emits one or more typed signals (e.g. `verified.has_contact_form`,
+  `verified.has_ai_automation_language`) into the `signals` table with
+  `source='website_inspection'`.
+- **fails safely** — a network error becomes a `verified.website_failed` signal
+  and the pipeline continues.
+
+### What changed in scoring
+
+| New verified signal | Rule weight | Component impact |
+|---|---:|---|
+| `verified.website_loads` | +4 | — |
+| `verified.has_contact_page` | +4 | — |
+| `verified.has_contact_form` | +8 | decisionMakerAccess +15 |
+| `verified.has_booking_link` | +10 | decisionMakerAccess +15 |
+| `verified.has_services_page` | +5 | — |
+| `verified.has_multiple_service_pages` | +4 | — |
+| `verified.has_careers_page` | +5 | — |
+| `verified.has_support_or_help` | +5 | — |
+| `verified.has_ecommerce_signals` | +6 | — |
+| `verified.has_manual_workflow_language` | +8 | manualWorkload +25 |
+| `verified.high_automation_fit` | +8 | manualWorkload +15 |
+| `verified.likely_service_business` | +4 | automationFit +10 |
+| `verified.likely_saas` | +4 | — |
+| `verified.likely_local_smb` | +3 | — |
+| `verified.website_failed` | **−30** | — |
+| `verified.has_ai_automation_language` | **−45** | automationFit −40 (competitor) |
+| `verified.low_digital_maturity` | **−12** | — |
+
+Every contribution shows up explicitly in the score `reasons[]` / `rejectionReasons[]` so
+the dashboard and `npm run debug:score` keep their full explanation.
+
 ## Data model
 
 ```
 companies ──< contacts
-          ├──< signals
+          ├──< signals          (raw source signals + verified.* signals)
           ├──< lead_scores
-          └──── review_queue (1-to-1)
+          ├──── review_queue (1-to-1)
+          └──── website_inspections (1-to-1, cached by domain)
 
 source_runs (independent — one row per source per pipeline run)
 ```
@@ -145,25 +220,31 @@ Everything is tunable in `src/scoring/scoringConfig.ts`.
 ## What is intentionally NOT built yet
 
 - Outreach (email / LinkedIn / DMs), email sending, inbox management.
-- LLM enrichment / AI scoring of leads.
+- LLM enrichment / AI scoring of leads — Phase 3 keeps everything to cheap HTML scraping
+  and rule-weighted heuristics. No language model is called on any lead.
 - LinkedIn scraping.
 - Other live source connectors (job boards, Product Hunt) — placeholders return empty results
   with a note.
 - Paid enrichment (Apollo, Clay, Clearbit).
+- Playwright-based inspection — env switch exists (`WEBSITE_INSPECTION_USE_PLAYWRIGHT=1`)
+  but the path is a deliberate stub; only wire it up if a real site requires JS-rendered
+  content to surface its signals.
 - Multi-tenant or authenticated dashboard — intended for `localhost`.
 - Background scheduler / cron — runs are operator-triggered.
 
-## Suggested Part 3 prompt
+## Suggested Part 4 prompt
 
-> Phase 3 — additional sources + verified website signals.
+> Phase 4 — additional sources + feedback loop + nightly run.
 >
 > 1. Add `jobBoardSource` (Workable public feeds or similar) using ops/automation keywords
->    as the query layer.
-> 2. Add a lightweight website-presence check (status code + simple tech fingerprint) so the
->    rule filter can verify `HAS_WEBSITE` instead of assuming it.
-> 3. Persist per-source `review_decisions` (accept / reject) to a new table; surface
->    suggested scoring-weight tweaks on the dashboard (display only, no auto-apply).
-> 4. Add a `scheduler` module that runs the pipeline nightly, appends new leads, and emits a
->    daily diff to `data/outputs/daily-diff.json`. No email sending.
+>    as the query layer. Reuse the inspection pipeline so verified signals get attached.
+> 2. Persist per-lead `review_decisions` (accept / reject / contacted) to a new table; on
+>    the dashboard surface *suggested* scoring-weight tweaks based on decision patterns
+>    (display only, no auto-apply).
+> 3. Add a `scheduler` module that runs the pipeline nightly, appends new leads, refreshes
+>    stale inspections, and emits a daily diff to `data/outputs/daily-diff.json`. No email
+>    sending.
+> 4. Optional: wire up `WEBSITE_INSPECTION_USE_PLAYWRIGHT=1` to a Playwright provider for
+>    JS-rendered sites, gated behind a strict per-day budget.
 >
-> Keep all hard cost ceilings explicit and configurable. Still no outreach.
+> Keep all hard cost ceilings explicit and configurable. Still no outreach. Still no LLMs.

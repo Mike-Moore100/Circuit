@@ -1,6 +1,40 @@
-import { getDashboardData, type SourceRunSummary } from './_lib/dashboardData';
+import {
+  getDashboardData,
+  type LeadVerifiedSignal,
+  type SourceRunSummary,
+} from './_lib/dashboardData';
 import { ReviewActions } from './_components/ReviewActions';
 import type { ReviewQueueRow } from '../src/types';
+
+function shortenSignalType(type: string): string {
+  return type.replace(/^verified\./, '').replace(/_/g, ' ');
+}
+
+function VerifiedSignals({ signals }: { signals: LeadVerifiedSignal[] }) {
+  if (!signals || signals.length === 0) {
+    return (
+      <ul className="reasons">
+        <li className="muted">No verified website signals yet.</li>
+      </ul>
+    );
+  }
+  return (
+    <ul className="reasons">
+      {signals.map((s) => {
+        const isPenalty =
+          s.type === 'verified.website_failed' ||
+          s.type === 'verified.has_ai_automation_language' ||
+          s.type === 'verified.low_digital_maturity';
+        return (
+          <li key={`${s.type}-${s.value}`} className={isPenalty ? 'neg' : 'pos'}>
+            <strong>{shortenSignalType(s.type)}</strong> — {s.value}{' '}
+            <span className="muted">({s.confidence})</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -109,6 +143,34 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      <h2>Website inspection</h2>
+      <div className="cards">
+        <div className="card">
+          <div className="label">Inspected</div>
+          <div className="value">{data.inspection.inspected}</div>
+        </div>
+        <div className="card Reject">
+          <div className="label">Failed</div>
+          <div className="value">{data.inspection.failed}</div>
+        </div>
+        <div className="card A">
+          <div className="label">High automation fit</div>
+          <div className="value">{data.inspection.highAutomationFit}</div>
+        </div>
+        <div className="card B">
+          <div className="label">Has contact form</div>
+          <div className="value">{data.inspection.withContactForm}</div>
+        </div>
+        <div className="card B">
+          <div className="label">Has booking link</div>
+          <div className="value">{data.inspection.withBookingLink}</div>
+        </div>
+        <div className="card Reject">
+          <div className="label">AI provider (avoid)</div>
+          <div className="value">{data.inspection.aiProvider}</div>
+        </div>
+      </div>
+
       <h2>Source runs</h2>
       {data.sourceRuns.length === 0 ? (
         <div className="empty">No source runs recorded yet.</div>
@@ -183,6 +245,12 @@ export default async function DashboardPage() {
                 </td>
                 <td>
                   <ReasonList row={row} />
+                  <details>
+                    <summary>Verified website signals</summary>
+                    <VerifiedSignals
+                      signals={data.verifiedSignalsByCompany[row.companyId] ?? []}
+                    />
+                  </details>
                   <details>
                     <summary>Likely pain points / next step</summary>
                     <ul className="reasons">

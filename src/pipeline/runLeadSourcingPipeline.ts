@@ -24,6 +24,7 @@ import { evaluateRules } from '../filters/ruleBasedFilter';
 import { combineScores, evaluateIntent } from '../scoring/intentScoring';
 import { activeSources } from '../sources/index';
 import { buildReviewRow } from '../review/reviewQueue';
+import { inspectAndCache, mapWithConcurrency } from '../inspection/inspect';
 
 export interface PipelineRunOptions {
   sources?: SourceConnector[];
@@ -50,6 +51,12 @@ export interface PipelineRunSummary {
   byPriority: { A: number; B: number; C: number; Reject: number };
   rows: ReviewQueueRow[];
   sourceRuns: PipelineSourceRunSummary[];
+  inspection: {
+    attempted: number;
+    fromCache: number;
+    failed: number;
+    skipped: number;
+  };
 }
 
 function emptySummary(): PipelineRunSummary {
@@ -62,6 +69,7 @@ function emptySummary(): PipelineRunSummary {
     byPriority: { A: 0, B: 0, C: 0, Reject: 0 },
     rows: [],
     sourceRuns: [],
+    inspection: { attempted: 0, fromCache: 0, failed: 0, skipped: 0 },
   };
 }
 
@@ -112,12 +120,79 @@ export async function runLeadSourcingPipeline(
         );
       }
 
-      // ---- 4. Persist, score, enqueue ------------------------------------
+      // ---- 4. Persist companies + contacts + raw source signals first ---
+      const persistedLeads: Array<{
+        company: ReturnType<typeof upsertCompanyFromLead>['company'];
+        lead: RawLead;
+      }> = [];
       for (const lead of unique) {
         const { company } = upsertCompanyFromLead(lead, db);
         upsertContactFromLead(company.id, lead, db);
         persistSignals(company.id, lead, db);
+        persistedLeads.push({ company, lead });
+      }
 
+      // ---- 4b. Parallel website inspection (between dedupe and scoring) -
+      if (config.websiteInspection.enabled && persistedLeads.length > 0) {
+        const inspectionResults = await mapWithConcurrency(
+          persistedLeads,
+          config.websiteInspection.concurrency,
+          async ({ company, lead }) => {
+            summary.inspection.attempted += 1;
+            try {
+              const outcome = await inspectAndCache(
+                lead.websiteUrl,
+                { companyId: company.id },
+                db,
+              );
+              if (!outcome) {
+                summary.inspection.skipped += 1;
+                return null;
+              }
+              if (outcome.result.fromCache) summary.inspection.fromCache += 1;
+              if (
+                outcome.result.status === 'failed' ||
+                outcome.result.status === 'timeout'
+              ) {
+                summary.inspection.failed += 1;
+              }
+              return outcome;
+            } catch (err) {
+              summary.inspection.failed += 1;
+              errors.push(
+                `inspection failed for ${lead.websiteUrl}: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              );
+              return null;
+            }
+          },
+        );
+
+        // Fold verified signals into each lead AND persist them so the
+        // signals table reflects everything used for scoring.
+        for (let i = 0; i < persistedLeads.length; i++) {
+          const outcome = inspectionResults[i];
+          if (!outcome || outcome.result.signals.length === 0) continue;
+          const verifiedOnly = outcome.result.signals;
+          persistedLeads[i].lead = {
+            ...persistedLeads[i].lead,
+            signals: [...persistedLeads[i].lead.signals, ...verifiedOnly],
+          };
+          persistSignals(
+            persistedLeads[i].company.id,
+            {
+              ...persistedLeads[i].lead,
+              signals: verifiedOnly,
+              source: 'website_inspection',
+            },
+            db,
+          );
+        }
+      }
+
+      // ---- 4c. Score + enqueue using the now-enriched leads --------------
+      for (const { company, lead } of persistedLeads) {
         const rule = evaluateRules(lead);
         const intent = evaluateIntent(lead);
         const combined: CombinedScore = combineScores(rule, intent);
