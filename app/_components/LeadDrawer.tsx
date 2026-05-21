@@ -399,12 +399,9 @@ export function LeadDrawer({ lead, signals, ai, currentReview, contacts, evidenc
           <h3 className="drawer-label">Next step</h3>
           <p className="note">{lead.suggestedNextStep}</p>
           {lead.likelyPainPoints.length > 0 && (
-            <ul className="reason-list" style={{ marginTop: 8 }}>
+            <ul className="bullet-list" style={{ marginTop: 8 }}>
               {lead.likelyPainPoints.map((p, i) => (
-                <li key={i} className="reason pos">
-                  <span className="delta">·</span>
-                  <span className="label">{p}</span>
-                </li>
+                <li key={i}>{p}</li>
               ))}
             </ul>
           )}
@@ -419,13 +416,10 @@ export function LeadDrawer({ lead, signals, ai, currentReview, contacts, evidenc
             {ai.operationalPainPoints.length > 0 && (
               <>
                 <h4 className="drawer-sublabel">Operational pain points</h4>
-                <ul className="reason-list">
+                <ul className="bullet-list">
                   {ai.operationalPainPoints.map((p) => (
-                    <li key={p.title} className="reason pos">
-                      <span className="delta">·</span>
-                      <span className="label">
-                        <strong>{p.title}</strong> — {p.description}
-                      </span>
+                    <li key={p.title}>
+                      <strong>{p.title}</strong> — {p.description}
                     </li>
                   ))}
                 </ul>
@@ -434,14 +428,11 @@ export function LeadDrawer({ lead, signals, ai, currentReview, contacts, evidenc
             {ai.automationOpportunities.length > 0 && (
               <>
                 <h4 className="drawer-sublabel">Automation opportunities</h4>
-                <ul className="reason-list">
+                <ul className="bullet-list">
                   {ai.automationOpportunities.map((o) => (
-                    <li key={o.title} className="reason pos">
-                      <span className="delta">·</span>
-                      <span className="label">
-                        <strong>{o.title}</strong> — {o.description}{' '}
-                        <span className="muted">({o.implementationComplexity})</span>
-                      </span>
+                    <li key={o.title}>
+                      <strong>{o.title}</strong> — {o.description}{' '}
+                      <span className="muted">({o.implementationComplexity})</span>
                     </li>
                   ))}
                 </ul>
@@ -451,7 +442,6 @@ export function LeadDrawer({ lead, signals, ai, currentReview, contacts, evidenc
         )}
 
         <section className="drawer-section">
-          <h3 className="drawer-label">Was this routing right?</h3>
           <LeadReviewActions
             companyId={lead.companyId}
             primaryCampaign={lead.primaryCampaign}

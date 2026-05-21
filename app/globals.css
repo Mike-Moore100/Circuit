@@ -1494,6 +1494,24 @@ details.row-details > summary:hover { color: var(--text); }
   color: var(--text-subtle);
 }
 .reason-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+
+/* Plain bulleted list (next-step pain points, AI operational/automation
+   lists). Distinct from .reason-list because reason-list reserves a
+   36-px column for numeric deltas — wrong gutter for a single bullet. */
+.bullet-list {
+  margin: 0;
+  padding: 0 0 0 16px;
+  list-style: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.bullet-list li::marker { color: var(--text-subtle); }
+.bullet-list li strong { color: var(--text); font-weight: 600; }
+.bullet-list .muted { color: var(--text-subtle); }
 .reason {
   display: flex;
   align-items: flex-start;
