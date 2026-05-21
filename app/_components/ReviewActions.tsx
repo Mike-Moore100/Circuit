@@ -64,32 +64,29 @@ export function ReviewActions({ companyId, status }: Props) {
   }
 
   return (
-    <div className="action-cluster">
-      <span className={`status-pill ${status}`}>{status}</span>
-      <div className="action-row">
-        {primary && (
-          <button
-            type="button"
-            onClick={() => send(primary)}
-            disabled={isPending}
-            className={btnClassFor(primary, true)}
-          >
-            {LABELS[primary]}
-          </button>
-        )}
-        {secondary.map((action) => (
-          <button
-            key={action}
-            type="button"
-            onClick={() => send(action)}
-            disabled={isPending}
-            className={btnClassFor(action, false)}
-          >
-            {LABELS[action]}
-          </button>
-        ))}
-      </div>
-      {error && <div className="action-error">{error}</div>}
+    <div className="action-row row-actions">
+      {primary && (
+        <button
+          type="button"
+          onClick={() => send(primary)}
+          disabled={isPending}
+          className={`${btnClassFor(primary, true)} btn-sm`}
+        >
+          {LABELS[primary]}
+        </button>
+      )}
+      {secondary.map((action) => (
+        <button
+          key={action}
+          type="button"
+          onClick={() => send(action)}
+          disabled={isPending}
+          className={`${btnClassFor(action, false)} btn-sm`}
+        >
+          {LABELS[action]}
+        </button>
+      ))}
+      {error && <span className="action-error">{error}</span>}
     </div>
   );
 }

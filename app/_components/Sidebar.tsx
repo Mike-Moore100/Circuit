@@ -77,49 +77,16 @@ export async function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-brand">
         <div className="brand-mark">C</div>
-        <div className="sidebar-brand-text">
-          <div className="sidebar-brand-name">Circuit</div>
-          <div className="sidebar-brand-sub">Lead intelligence</div>
-        </div>
+        <div className="sidebar-brand-name">Circuit</div>
       </div>
 
-      <div className="sidebar-section">
-        <div className="sidebar-section-label">Workspace</div>
-        <nav className="nav-stack">
-          <NavItem icon="dashboard" label="Overview" href="#overview" active />
-          <NavItem
-            icon="queue"
-            label="Review queue"
-            href="#review"
-            badge={queueCount}
-          />
-          <NavItem icon="sources" label="Sources" href="#sources" badge={sourcesCount} />
-          <NavItem icon="inspect" label="Inspection" href="#inspection" />
-          <NavItem
-            icon="rejected"
-            label="Rejected"
-            href="#rejected"
-            badge={rejectedCount}
-          />
-        </nav>
-      </div>
-
-      <div className="sidebar-section">
-        <div className="sidebar-section-label">System</div>
-        <nav className="nav-stack">
-          <NavItem icon="settings" label="Settings" href="#settings" />
-        </nav>
-      </div>
-
-      <div className="sidebar-foot">
-        <div className="user-card">
-          <div className="user-avatar">MM</div>
-          <div className="user-text">
-            <div className="user-name">Mike Moore</div>
-            <div className="user-sub">Operator</div>
-          </div>
-        </div>
-      </div>
+      <nav className="nav-stack">
+        <NavItem icon="dashboard" label="Overview" href="#overview" active />
+        <NavItem icon="queue" label="Review queue" href="#review" badge={queueCount} />
+        <NavItem icon="sources" label="Sources" href="#sources" badge={sourcesCount} />
+        <NavItem icon="inspect" label="Inspection" href="#inspection" />
+        <NavItem icon="rejected" label="Rejected" href="#rejected" badge={rejectedCount} />
+      </nav>
     </aside>
   );
 }

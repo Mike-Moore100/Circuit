@@ -45,18 +45,11 @@ function PriorityTag({ priority }: { priority: Priority }) {
 function ScoreCell({ row }: { row: ReviewQueueRow }) {
   const finalWidth = `${Math.max(0, Math.min(100, row.finalScore))}%`;
   return (
-    <div>
-      <div className="score-cell">
-        <div className={`score-bar ${row.priority}`}>
-          <span className="fill" style={{ width: finalWidth }} />
-          <span className="threshold" style={{ left: '60%' }} />
-          <span className="threshold" style={{ left: '85%' }} />
-        </div>
-        <span className="score-number">{row.finalScore}</span>
+    <div className="score-cell">
+      <div className={`score-bar ${row.priority}`}>
+        <span className="fill" style={{ width: finalWidth }} />
       </div>
-      <div className="score-sub">
-        rule {row.ruleScore} · intent {row.intentScore}
-      </div>
+      <span className="score-number">{row.finalScore}</span>
     </div>
   );
 }
@@ -135,103 +128,34 @@ export default async function DashboardPage({
 
   return (
     <>
-      {/* ============ Topbar ============ */}
-      <div className="topbar">
-        <div>
+      {/* ============ Topbar — title only, no fake CTA ============ */}
+      <header className="topbar">
+        <div className="topbar-title">
           <h1>Overview</h1>
-          <div className="crumbs">Pipeline · Lead intelligence</div>
-        </div>
-        <div className="topbar-actions">
-          {latestRun && (
-            <span className={`status-pill ${latestRun.status}`}>
-              {latestRun.source} · {fmtRelative(latestRun.completedAt ?? latestRun.startedAt)}
-            </span>
-          )}
-          <button type="button" className="btn btn-primary" title="Run `npm run pipeline` in your terminal">
-            Run pipeline
-          </button>
-        </div>
-      </div>
-
-      {/* ============ Compact overview strip ============ */}
-      <section className="section" id="overview">
-        <div className="overview-strip">
-          <div className="overview-item primary">
-            <span className="overview-label">In queue</span>
-            <span className="overview-value">{data.reviewQueue.length}</span>
-            <span className="overview-foot priority-dots">
-              <span className="dot A" /> {data.priorityCounts.A}
-              <span className="dot B" style={{ marginLeft: 8 }} /> {data.priorityCounts.B}
-              <span className="dot C" style={{ marginLeft: 8 }} /> {data.priorityCounts.C}
-            </span>
+          <div className="topbar-stats">
+            {data.reviewQueue.length} leads · {data.priorityCounts.A}A · {data.priorityCounts.B}B · {data.priorityCounts.C}C · avg {avg ?? '—'}
+            {data.inspection.inspected > 0 && <> · {inspectedOk}/{data.inspection.inspected} inspected</>}
+            {data.ai.total > 0 && <> · ${data.ai.todayCostUsd.toFixed(2)} AI</>}
+            {data.validation.falseRejectCandidates.length > 0 && (
+              <> · <a href="#diagnostics" className="topbar-alert">{data.validation.falseRejectCandidates.length} flagged</a></>
+            )}
           </div>
-          <div className="overview-item">
-            <span className="overview-label">Avg score</span>
-            <span className="overview-value">{avg ?? '—'}</span>
-            <span className="overview-foot">{data.totals.processed} processed</span>
-          </div>
-          <div className="overview-item">
-            <span className="overview-label">Inspected</span>
-            <span className="overview-value">
-              {inspectedOk}
-              <span className="overview-of">/{data.inspection.inspected}</span>
-            </span>
-            <span className="overview-foot">{data.inspection.failed} failed</span>
-          </div>
-          {data.ai.total > 0 && (
-            <div className="overview-item">
-              <span className="overview-label">AI spent today</span>
-              <span className="overview-value">${data.ai.todayCostUsd.toFixed(2)}</span>
-              <span className="overview-foot">of ${data.ai.dailyLimitUsd.toFixed(2)} cap</span>
-            </div>
-          )}
-          {data.validation.falseRejectCandidates.length > 0 && (
-            <a href="#diagnostics" className="overview-item overview-alert">
-              <span className="overview-label">Suspicious</span>
-              <span className="overview-value">{data.validation.falseRejectCandidates.length}</span>
-              <span className="overview-foot">click to review</span>
-            </a>
-          )}
         </div>
-      </section>
+        {latestRun && (
+          <span className={`status-pill ${latestRun.status}`}>
+            {latestRun.source} · {fmtRelative(latestRun.completedAt ?? latestRun.startedAt)}
+          </span>
+        )}
+      </header>
 
       {/* ============ Pipeline diagnostics (collapsed by default) ============ */}
       <section className="section" id="diagnostics">
         <details className="disclosure">
           <summary>
-            Pipeline diagnostics
-            <span className="summary-meta">
-              Campaign distribution · AI analysis · website inspection · validation metrics · source quality
-            </span>
+            Diagnostics
+            <span className="summary-meta">Validation · inspection · AI cost</span>
           </summary>
-          <div className="disclosure-body" style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-            {/* Campaign segments */}
-            <div>
-              <div className="section-head" style={{ marginBottom: 'var(--space-2)' }}>
-                <h3 className="section-title" style={{ fontSize: 'var(--text-xs)' }}>Campaign segments</h3>
-              </div>
-              <div className="campaign-grid">
-                {(
-                  [
-                    'AI_AUTOMATION',
-                    'WEB_REBUILD',
-                    'FUNNEL_OPTIMIZATION',
-                    'LOCAL_DIGITAL_UPGRADE',
-                    'LOW_PRIORITY_NURTURE',
-                    'REJECT',
-                  ] as Campaign[]
-                ).map((c) => (
-                  <div key={c} className={`campaign-card campaign-${c}`}>
-                    <div className="campaign-card-head">
-                      <span className={`campaign-tag campaign-${c}`}>{CAMPAIGN_LABEL[c]}</span>
-                      <span className="campaign-count">{data.campaignCounts[c]}</span>
-                    </div>
-                    <p className="campaign-desc">{CAMPAIGN_DESCRIPTION[c]}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
+          <div className="disclosure-body" style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             {/* Validation metrics */}
             <div>
               <div className="section-head" style={{ marginBottom: 'var(--space-2)' }}>
@@ -446,67 +370,8 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      {/* ============ Collapsed sections ============ */}
+      {/* ============ Rejected (collapsed) ============ */}
       <section className="section" id="sources">
-        <details className="disclosure">
-          <summary>
-            Recent source runs
-            <span className="summary-meta">
-              {data.sourceRuns.length} run{data.sourceRuns.length === 1 ? '' : 's'} recorded
-            </span>
-          </summary>
-          <div className="disclosure-body">
-            {data.sourceRuns.length === 0 ? (
-              <div className="empty">No source runs recorded yet.</div>
-            ) : (
-              <table className="runs-table">
-                <thead>
-                  <tr>
-                    <th>Source</th>
-                    <th>Status</th>
-                    <th>Started</th>
-                    <th>Duration</th>
-                    <th>Found</th>
-                    <th>Accepted</th>
-                    <th>API calls</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.sourceRuns.map((run: SourceRunSummary) => (
-                    <tr key={run.id}>
-                      <td><span className="tag">{run.source}</span></td>
-                      <td><span className={`status-pill ${run.status}`}>{run.status}</span></td>
-                      <td>{fmtTime(run.startedAt)}</td>
-                      <td className="num">{fmtDuration(run.durationMs)}</td>
-                      <td className="num">{run.leadsFound}</td>
-                      <td className="num">{run.leadsAccepted}</td>
-                      <td className="num">{run.apiCalls}</td>
-                      <td>
-                        {run.errors.length === 0 ? (
-                          <span>—</span>
-                        ) : (
-                          <details>
-                            <summary>{run.errors.length} note{run.errors.length === 1 ? '' : 's'}</summary>
-                            <ul className="reason-list">
-                              {run.errors.map((e, i) => (
-                                <li key={i} className="reason neg">
-                                  <span className="delta">·</span>
-                                  <span className="label">{e}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </details>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </details>
-
         {data.rejected.length > 0 && (
           <details className="disclosure" id="rejected">
             <summary>
