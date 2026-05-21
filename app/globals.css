@@ -79,3 +79,45 @@ code { background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
 
 a { color: var(--info); text-decoration: none; }
 a:hover { text-decoration: underline; }
+
+.review-actions { display: flex; flex-direction: column; gap: 6px; min-width: 120px; }
+.action-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.action-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.action-btn:hover { background: var(--panel); border-color: var(--accent); }
+.action-btn:disabled { opacity: 0.5; cursor: progress; }
+.action-btn.action-accept    { color: var(--accent); }
+.action-btn.action-reject    { color: var(--danger); }
+.action-btn.action-contacted { color: var(--info); }
+.action-btn.action-requeue   { color: var(--warn); }
+.action-error { color: var(--danger); font-size: 11px; }
+
+.status-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.status-queued        { color: var(--muted);  }
+.status-investigating { color: var(--info);   border-color: rgba(147, 197, 253, 0.4); }
+.status-contacted     { color: var(--accent); border-color: rgba(110, 231, 183, 0.4); }
+.status-rejected      { color: var(--danger); border-color: rgba(248, 113, 113, 0.4); }
+.status-running       { color: var(--info);   border-color: rgba(147, 197, 253, 0.4); }
+.status-completed     { color: var(--accent); border-color: rgba(110, 231, 183, 0.4); }
+.status-failed        { color: var(--danger); border-color: rgba(248, 113, 113, 0.4); }

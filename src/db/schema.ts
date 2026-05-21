@@ -75,4 +75,21 @@ CREATE TABLE IF NOT EXISTS review_queue (
 
 CREATE INDEX IF NOT EXISTS review_queue_priority_idx ON review_queue(priority);
 CREATE INDEX IF NOT EXISTS review_queue_status_idx   ON review_queue(status);
+
+CREATE TABLE IF NOT EXISTS source_runs (
+  id              TEXT PRIMARY KEY,
+  source          TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'running',
+  started_at      TEXT NOT NULL,
+  completed_at    TEXT,
+  leads_found     INTEGER NOT NULL DEFAULT 0,
+  leads_accepted  INTEGER NOT NULL DEFAULT 0,
+  leads_rejected  INTEGER NOT NULL DEFAULT 0,
+  api_calls       INTEGER NOT NULL DEFAULT 0,
+  errors_json     TEXT,
+  params_json     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS source_runs_source_idx     ON source_runs(source);
+CREATE INDEX IF NOT EXISTS source_runs_started_at_idx ON source_runs(started_at DESC);
 `;

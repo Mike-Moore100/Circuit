@@ -41,17 +41,39 @@ export const SourceFetchOptionsSchema = z.object({
 });
 export type SourceFetchOptions = z.infer<typeof SourceFetchOptionsSchema>;
 
-export interface SourceConnector {
-  name: string;
-  fetchLeads(options?: SourceFetchOptions): Promise<RawLead[]>;
+export interface SourceFetchResult {
+  leads: RawLead[];
+  apiCalls: number;
+  errors: string[];
+  // Optional metadata that the source wants persisted on the run record
+  // (e.g. categories searched, locations swept).
+  params?: Record<string, unknown>;
 }
 
-export interface SourceResult {
-  source: string;
-  fetchedAt: string;
-  leads: RawLead[];
-  errors?: string[];
+export interface SourceConnector {
+  name: string;
+  fetchLeads(options?: SourceFetchOptions): Promise<SourceFetchResult>;
 }
+
+// Legacy alias kept so any external code importing SourceResult still
+// compiles; new code should use SourceFetchResult.
+export type SourceResult = SourceFetchResult & { source: string; fetchedAt: string };
+
+// Persisted source run record.
+export const SourceRunSchema = z.object({
+  id: z.string().uuid(),
+  source: z.string(),
+  status: z.enum(['running', 'completed', 'failed']),
+  started_at: z.string(),
+  completed_at: z.string().nullable(),
+  leads_found: z.number().int().nonnegative(),
+  leads_accepted: z.number().int().nonnegative(),
+  leads_rejected: z.number().int().nonnegative(),
+  api_calls: z.number().int().nonnegative(),
+  errors_json: z.string().nullable(),
+  params_json: z.string().nullable(),
+});
+export type SourceRun = z.infer<typeof SourceRunSchema>;
 
 // ---------------------------------------------------------------------------
 // Persisted entities.

@@ -1,4 +1,5 @@
-import { getDashboardData } from './_lib/dashboardData';
+import { getDashboardData, type SourceRunSummary } from './_lib/dashboardData';
+import { ReviewActions } from './_components/ReviewActions';
 import type { ReviewQueueRow } from '../src/types';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,50 @@ function ReasonList({ row }: { row: ReviewQueueRow }) {
   );
 }
 
+function fmtDuration(ms: number | null): string {
+  if (ms === null) return '—';
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 60_000).toFixed(1)}m`;
+}
+
+function fmtTime(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString();
+}
+
+function SourceRunRow({ run }: { run: SourceRunSummary }) {
+  return (
+    <tr>
+      <td>{run.source}</td>
+      <td>
+        <span className={`status-tag status-${run.status}`}>{run.status}</span>
+      </td>
+      <td className="muted">{fmtTime(run.startedAt)}</td>
+      <td className="muted">{fmtTime(run.completedAt)}</td>
+      <td className="score">{fmtDuration(run.durationMs)}</td>
+      <td className="score">{run.leadsFound}</td>
+      <td className="score">{run.leadsAccepted}</td>
+      <td className="score">{run.leadsRejected}</td>
+      <td className="score">{run.apiCalls}</td>
+      <td>
+        {run.errors.length === 0 ? (
+          <span className="muted">—</span>
+        ) : (
+          <details>
+            <summary>{run.errors.length} note{run.errors.length === 1 ? '' : 's'}</summary>
+            <ul className="reasons">
+              {run.errors.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </td>
+    </tr>
+  );
+}
+
 export default async function DashboardPage() {
   const data = await getDashboardData();
 
@@ -33,7 +78,8 @@ export default async function DashboardPage() {
     <main>
       <h1>Circuit — Lead Review</h1>
       <p className="subtitle">
-        Internal operator view. Run <code>npm run pipeline</code> to refresh.
+        Internal operator view. Run <code>npm run pipeline</code> or{' '}
+        <code>npm run pipeline:google-maps</code> to refresh.
       </p>
 
       <div className="cards">
@@ -63,6 +109,33 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      <h2>Source runs</h2>
+      {data.sourceRuns.length === 0 ? (
+        <div className="empty">No source runs recorded yet.</div>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Status</th>
+              <th>Started</th>
+              <th>Completed</th>
+              <th>Duration</th>
+              <th>Found</th>
+              <th>Accepted</th>
+              <th>Rejected</th>
+              <th>API calls</th>
+              <th>Errors / notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.sourceRuns.map((run) => (
+              <SourceRunRow key={run.id} run={run} />
+            ))}
+          </tbody>
+        </table>
+      )}
+
       <h2>Review queue</h2>
       {data.reviewQueue.length === 0 ? (
         <div className="empty">
@@ -79,6 +152,7 @@ export default async function DashboardPage() {
               <th>Rule</th>
               <th>Intent</th>
               <th>Final</th>
+              <th>Actions</th>
               <th>Score breakdown / next step</th>
             </tr>
           </thead>
@@ -104,6 +178,9 @@ export default async function DashboardPage() {
                 <td className="score">{row.ruleScore}</td>
                 <td className="score">{row.intentScore}</td>
                 <td className="score">{row.finalScore}</td>
+                <td>
+                  <ReviewActions companyId={row.companyId} status={row.status} />
+                </td>
                 <td>
                   <ReasonList row={row} />
                   <details>

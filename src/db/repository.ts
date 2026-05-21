@@ -8,6 +8,7 @@ import type {
   RawLead,
   Priority,
   ReviewItem,
+  SourceRun,
 } from '../types/index';
 import { getDb } from './client';
 
@@ -302,4 +303,101 @@ export function getReviewQueue(db: Database = getDb()): Array<ReviewItem & Compa
          JOIN companies c ON c.id = r.company_id`,
     )
     .all() as Array<ReviewItem & Company>;
+}
+
+export function updateReviewItemStatus(
+  companyId: string,
+  status: ReviewItem['status'],
+  notes: string | null = null,
+  db: Database = getDb(),
+): ReviewItem | undefined {
+  const existing = db
+    .prepare('SELECT * FROM review_queue WHERE company_id = ?')
+    .get(companyId) as ReviewItem | undefined;
+  if (!existing) return undefined;
+  const updated_at = now();
+  db.prepare(
+    'UPDATE review_queue SET status = ?, notes = COALESCE(?, notes), updated_at = ? WHERE id = ?',
+  ).run(status, notes, updated_at, existing.id);
+  return { ...existing, status, notes: notes ?? existing.notes, updated_at };
+}
+
+// ---------------------------------------------------------------------------
+// Source runs
+// ---------------------------------------------------------------------------
+export interface CreateSourceRunInput {
+  source: string;
+  params?: Record<string, unknown>;
+}
+
+export function createSourceRun(
+  input: CreateSourceRunInput,
+  db: Database = getDb(),
+): SourceRun {
+  const run: SourceRun = {
+    id: randomUUID(),
+    source: input.source,
+    status: 'running',
+    started_at: now(),
+    completed_at: null,
+    leads_found: 0,
+    leads_accepted: 0,
+    leads_rejected: 0,
+    api_calls: 0,
+    errors_json: null,
+    params_json: input.params ? JSON.stringify(input.params) : null,
+  };
+  db.prepare(
+    `INSERT INTO source_runs
+       (id, source, status, started_at, completed_at,
+        leads_found, leads_accepted, leads_rejected, api_calls,
+        errors_json, params_json)
+     VALUES
+       (@id, @source, @status, @started_at, @completed_at,
+        @leads_found, @leads_accepted, @leads_rejected, @api_calls,
+        @errors_json, @params_json)`,
+  ).run(run);
+  return run;
+}
+
+export interface FinishSourceRunInput {
+  id: string;
+  status: 'completed' | 'failed';
+  leadsFound: number;
+  leadsAccepted: number;
+  leadsRejected: number;
+  apiCalls: number;
+  errors: string[];
+}
+
+export function finishSourceRun(input: FinishSourceRunInput, db: Database = getDb()): void {
+  db.prepare(
+    `UPDATE source_runs
+        SET status         = @status,
+            completed_at   = @completed_at,
+            leads_found    = @leads_found,
+            leads_accepted = @leads_accepted,
+            leads_rejected = @leads_rejected,
+            api_calls      = @api_calls,
+            errors_json    = @errors_json
+      WHERE id = @id`,
+  ).run({
+    id: input.id,
+    status: input.status,
+    completed_at: now(),
+    leads_found: input.leadsFound,
+    leads_accepted: input.leadsAccepted,
+    leads_rejected: input.leadsRejected,
+    api_calls: input.apiCalls,
+    errors_json: input.errors.length > 0 ? JSON.stringify(input.errors) : null,
+  });
+}
+
+export function getRecentSourceRuns(
+  limit = 20,
+  db: Database = getDb(),
+): SourceRun[] {
+  return db
+    .prepare('SELECT * FROM source_runs ORDER BY started_at DESC LIMIT ?')
+    .all(limit) as SourceRun[];
 }

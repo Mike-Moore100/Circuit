@@ -1,4 +1,9 @@
-import type { RawLead, SourceConnector, SourceFetchOptions } from '../types/index';
+import type {
+  RawLead,
+  SourceConnector,
+  SourceFetchOptions,
+  SourceFetchResult,
+} from '../types/index';
 
 // Realistic-looking mock leads covering the ICP, edge cases, and clear bad fits.
 // Every lead carries enough signal for the rule filter and intent scorer to
@@ -213,7 +218,7 @@ export const MOCK_LEADS: RawLead[] = [
 
 export const mockSourceConnector: SourceConnector = {
   name: 'mock',
-  async fetchLeads(options: SourceFetchOptions = {}): Promise<RawLead[]> {
+  async fetchLeads(options: SourceFetchOptions = {}): Promise<SourceFetchResult> {
     let leads = MOCK_LEADS.slice();
     if (options.industry) {
       const q = options.industry.toLowerCase();
@@ -224,6 +229,6 @@ export const mockSourceConnector: SourceConnector = {
       leads = leads.filter((l) => (l.location ?? '').toLowerCase().includes(q));
     }
     if (options.limit) leads = leads.slice(0, options.limit);
-    return leads;
+    return { leads, apiCalls: 0, errors: [], params: options as Record<string, unknown> };
   },
 };

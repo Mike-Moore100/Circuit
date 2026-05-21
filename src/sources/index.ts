@@ -11,7 +11,8 @@ export { productHuntSource } from './productHuntSource';
 export { jobBoardSource } from './jobBoardSource';
 export { linkedinAssistedSource } from './linkedinAssistedSource';
 
-// Registry of available connectors. Only `mock` is active in Phase 1.
+// Registry of available connectors. `mock` and `google_maps` are live;
+// the rest are placeholders to be implemented in later phases.
 export const sourceRegistry: Record<string, SourceConnector> = {
   mock: mockSourceConnector,
   google_maps: googleMapsSource,
@@ -20,4 +21,7 @@ export const sourceRegistry: Record<string, SourceConnector> = {
   linkedin_assisted: linkedinAssistedSource,
 };
 
+// `npm run pipeline` runs only the mock source by default to avoid burning
+// API quota unintentionally. Use `npm run pipeline:google-maps` for the live
+// source.
 export const activeSources: SourceConnector[] = [mockSourceConnector];

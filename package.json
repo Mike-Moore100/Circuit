@@ -9,6 +9,7 @@
     "start": "next start",
     "seed": "tsx scripts/seed.ts",
     "pipeline": "tsx scripts/pipeline.ts",
+    "pipeline:google-maps": "tsx scripts/runGoogleMaps.ts",
     "debug:score": "tsx scripts/debugScore.ts",
     "db:reset": "tsx scripts/resetDb.ts",
     "test": "vitest run",

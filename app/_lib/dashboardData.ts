@@ -1,9 +1,11 @@
 import { getDb } from '../../src/db/client';
+import { getRecentSourceRuns } from '../../src/db/repository';
 import type {
   Company,
   Priority,
   ReviewQueueRow,
   ScoreReason,
+  SourceRun,
 } from '../../src/types';
 
 interface RawJoinedRow extends Company {
@@ -29,11 +31,26 @@ interface PersistedReasons {
   };
 }
 
+export interface SourceRunSummary {
+  id: string;
+  source: string;
+  status: SourceRun['status'];
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  leadsFound: number;
+  leadsAccepted: number;
+  leadsRejected: number;
+  apiCalls: number;
+  errors: string[];
+}
+
 export interface DashboardData {
   totals: { processed: number; accepted: number; rejected: number };
   priorityCounts: Record<Priority, number>;
   reviewQueue: ReviewQueueRow[];
   rejected: ReviewQueueRow[];
+  sourceRuns: SourceRunSummary[];
 }
 
 function parseReasons(raw: string | null): PersistedReasons | null {
@@ -133,6 +150,33 @@ export async function getDashboardData(): Promise<DashboardData> {
   const priorityCounts: Record<Priority, number> = { A: 0, B: 0, C: 0, Reject: 0 };
   for (const r of all) priorityCounts[r.priority] += 1;
 
+  const sourceRuns: SourceRunSummary[] = getRecentSourceRuns(20, db).map((r) => {
+    let errors: string[] = [];
+    if (r.errors_json) {
+      try {
+        const parsed = JSON.parse(r.errors_json);
+        if (Array.isArray(parsed)) errors = parsed.map(String);
+      } catch {
+        errors = [r.errors_json];
+      }
+    }
+    const startedMs = new Date(r.started_at).getTime();
+    const completedMs = r.completed_at ? new Date(r.completed_at).getTime() : null;
+    return {
+      id: r.id,
+      source: r.source,
+      status: r.status,
+      startedAt: r.started_at,
+      completedAt: r.completed_at,
+      durationMs: completedMs ? completedMs - startedMs : null,
+      leadsFound: r.leads_found,
+      leadsAccepted: r.leads_accepted,
+      leadsRejected: r.leads_rejected,
+      apiCalls: r.api_calls,
+      errors,
+    };
+  });
+
   return {
     totals: {
       processed: all.length,
@@ -142,5 +186,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     priorityCounts,
     reviewQueue,
     rejected,
+    sourceRuns,
   };
 }
