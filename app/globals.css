@@ -1504,8 +1504,8 @@ details.row-details > summary:hover { color: var(--text); }
 .reason .delta {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  min-width: 32px;
-  text-align: right;
+  min-width: 36px;
+  text-align: left;
 }
 .reason.pos .delta { color: var(--success); }
 .reason.neg .delta { color: var(--danger); }
