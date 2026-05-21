@@ -9,20 +9,34 @@ import {
   getContactRoutesForCompany,
 } from '../db/repository';
 import { contactabilityForCompany, scoreContact } from './contactConfidence';
-import { classifyEmail, emailMatchesName, type ExtractedEmail } from './emailExtractor';
+import {
+  classifyEmail,
+  emailMatchesName,
+  type ExtractedEmail,
+} from './emailExtractor';
 import {
   fallbackRoleEmails,
   guessEmailsForName,
 } from './emailPatternGuesser';
 import { detectDecisionMakers, type DetectedPerson } from './decisionMakerDetector';
-import { crawlContactPages, type ContactPage } from './websiteContactExtractor';
+import {
+  crawlContactPages,
+  type ContactPage,
+} from './websiteContactExtractor';
+import {
+  looksJsRendered,
+  renderContactPagesForCompany,
+  whyJsRendered,
+  type PageRenderer,
+} from './playwrightContactExtractor';
 import type {
   ContactDiscoveryResult,
+  ContactSource,
   DiscoveredContact,
   DiscoveredRoute,
 } from './contactTypes';
 
-const CACHE_FRESH_DAYS = 14; // re-run discovery for the same company at most every 2 weeks
+const CACHE_FRESH_DAYS = 14;
 
 function isCacheFresh(iso: string): boolean {
   const age = Date.now() - new Date(iso).getTime();
@@ -40,6 +54,10 @@ function emptyResult(
     routes: [],
     contactabilityScore: 0,
     pagesCrawled: 0,
+    staticPagesCrawled: 0,
+    playwrightPagesCrawled: 0,
+    playwrightRan: false,
+    playwrightReason: errorMessage ?? 'not attempted',
     fromCache: false,
     durationMs: Date.now() - startedAt,
     errorMessage,
@@ -51,8 +69,88 @@ export interface DiscoverContactsOptions {
   websiteUrl: string | null;
   force?: boolean;
   db?: Database;
+  // Injection point for tests — bypasses Playwright entirely.
+  playwrightRenderer?: PageRenderer;
 }
 
+// ---------------------------------------------------------------------------
+// Gate the fallback strictly. Returns "should we run it?" + reason string.
+// ---------------------------------------------------------------------------
+function fallbackDecision(
+  staticPages: ContactPage[],
+  staticDms: DetectedPerson[],
+  staticEmails: Map<string, unknown>,
+): { run: boolean; reason: string } {
+  if (!config.contactPlaywright.enabled) {
+    return { run: false, reason: 'CONTACT_PLAYWRIGHT_FALLBACK_ENABLED=0' };
+  }
+  if (staticPages.length === 0) {
+    return { run: false, reason: 'no static homepage to inspect' };
+  }
+  const namedDms = staticDms.length;
+  const emailCount = staticEmails.size;
+  if (namedDms === 0 && emailCount === 0) {
+    return { run: true, reason: 'static crawl found 0 contacts' };
+  }
+  const homepage = staticPages[0];
+  // Trigger the fallback for JS-rendered shells only when the static crawl
+  // produced zero named decision-makers. If we already have at least one
+  // named person, the cheap static path is good enough — no Playwright cost.
+  if (namedDms === 0 && looksJsRendered(homepage)) {
+    return {
+      run: true,
+      reason: `JS-rendered shell — ${whyJsRendered(homepage)}`,
+    };
+  }
+  return {
+    run: false,
+    reason: `static crawl sufficient (${namedDms} named DM, ${emailCount} email)`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Aggregator — given a set of pages tagged with their source, produce the
+// canonical maps the rest of the orchestrator consumes.
+// ---------------------------------------------------------------------------
+interface SourcedEmail extends ExtractedEmail {
+  sourceUrl: string;
+  source: 'static' | 'playwright';
+}
+interface SourcedDm extends DetectedPerson {
+  source: 'static' | 'playwright';
+}
+interface SourcedPhone {
+  value: string;
+  sourceUrl: string;
+  source: 'static' | 'playwright';
+}
+
+function aggregatePages(
+  pages: ContactPage[],
+  source: 'static' | 'playwright',
+): {
+  emails: SourcedEmail[];
+  phones: SourcedPhone[];
+  dms: SourcedDm[];
+} {
+  const emails: SourcedEmail[] = [];
+  const phones: SourcedPhone[] = [];
+  const dms: SourcedDm[] = [];
+  for (const page of pages) {
+    for (const e of page.emails) {
+      emails.push({ ...e, sourceUrl: page.url, source });
+    }
+    for (const p of page.phones) {
+      phones.push({ value: p, sourceUrl: page.url, source });
+    }
+    for (const dm of detectDecisionMakers(page.root, page.textContent, page.url)) {
+      dms.push({ ...dm, source });
+    }
+  }
+  return { emails, phones, dms };
+}
+
+// ---------------------------------------------------------------------------
 export async function discoverContactsForCompany(
   opts: DiscoverContactsOptions,
 ): Promise<ContactDiscoveryResult> {
@@ -66,7 +164,7 @@ export async function discoverContactsForCompany(
     return emptyResult(opts.companyId, startedAt, 'no website on lead');
   }
 
-  // Cache check — if we have contacts persisted recently, return them.
+  // Cache: if we have fresh contacts persisted, return them as-is.
   if (!opts.force) {
     const existing = getContactsForCompany(opts.companyId, db);
     const fresh = existing.find(
@@ -83,15 +181,20 @@ export async function discoverContactsForCompany(
         routes: cachedRoutes,
         contactabilityScore: contactabilityForCompany(cachedContacts, cachedRoutes),
         pagesCrawled: 0,
+        staticPagesCrawled: 0,
+        playwrightPagesCrawled: 0,
+        playwrightRan: false,
+        playwrightReason: 'cache hit',
         fromCache: true,
         durationMs: Date.now() - startedAt,
       };
     }
   }
 
-  let pages: ContactPage[] = [];
+  // ---- 1. Static crawl --------------------------------------------------
+  let staticPages: ContactPage[] = [];
   try {
-    pages = await crawlContactPages(opts.websiteUrl);
+    staticPages = await crawlContactPages(opts.websiteUrl);
   } catch (err) {
     return emptyResult(
       opts.companyId,
@@ -100,50 +203,65 @@ export async function discoverContactsForCompany(
     );
   }
 
-  if (pages.length === 0) {
+  const staticAgg = aggregatePages(staticPages, 'static');
+  const staticEmailMap = new Map<string, SourcedEmail>();
+  for (const e of staticAgg.emails) {
+    if (!staticEmailMap.has(e.email)) staticEmailMap.set(e.email, e);
+  }
+  const staticDmByName = dedupeDmsByName(staticAgg.dms);
+
+  // ---- 2. Decide on Playwright fallback ---------------------------------
+  const decision = fallbackDecision(staticPages, [...staticDmByName.values()], staticEmailMap);
+  let renderedPages: ContactPage[] = [];
+  let playwrightError: string | undefined;
+  let playwrightRan = false;
+  if (decision.run) {
+    playwrightRan = true;
+    try {
+      const result = await renderContactPagesForCompany(opts.websiteUrl, {
+        renderer: opts.playwrightRenderer,
+      });
+      renderedPages = result.pages;
+      if (result.errorMessage) playwrightError = result.errorMessage;
+    } catch (err) {
+      playwrightError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  const renderedAgg = aggregatePages(renderedPages, 'playwright');
+
+  // If neither crawler returned a single page, this is a network-dead lead.
+  // Bail out with an empty result rather than fabricating fallback emails.
+  if (staticPages.length === 0 && renderedPages.length === 0) {
     return emptyResult(opts.companyId, startedAt, 'no pages reachable');
   }
 
-  // ---- Aggregate emails across all pages -------------------------------
-  const allEmails = new Map<string, ExtractedEmail & { sourceUrl: string }>();
-  for (const page of pages) {
-    for (const e of page.emails) {
-      if (!allEmails.has(e.email)) {
-        allEmails.set(e.email, { ...e, sourceUrl: page.url });
-      }
-    }
+  // ---- 3. Merge --------------------------------------------------------
+  // Static wins on dedup ties (it's cheaper + already canonical).
+  const emailByAddr = new Map<string, SourcedEmail>(staticEmailMap);
+  for (const e of renderedAgg.emails) {
+    if (!emailByAddr.has(e.email)) emailByAddr.set(e.email, e);
   }
-
-  // ---- Aggregate phones (de-dupe by digits) ----------------------------
-  const phones = new Map<string, { value: string; sourceUrl: string }>();
-  for (const page of pages) {
-    for (const p of page.phones) {
-      const digits = p.replace(/[^\d]/g, '');
-      if (!phones.has(digits)) phones.set(digits, { value: p, sourceUrl: page.url });
-    }
-  }
-
-  // ---- Detect decision-makers ------------------------------------------
-  const dms: DetectedPerson[] = [];
-  for (const page of pages) {
-    for (const p of detectDecisionMakers(page.root, page.textContent, page.url)) {
-      dms.push(p);
-    }
-  }
-  // Dedupe DMs by name (case-insensitive); keep highest-confidence row.
-  const dmByName = new Map<string, DetectedPerson>();
-  for (const dm of dms) {
+  const dmByName = new Map(staticDmByName);
+  for (const dm of renderedAgg.dms) {
     const key = dm.name.toLowerCase();
     const existing = dmByName.get(key);
     if (!existing || dm.roleConfidence > existing.roleConfidence) {
       dmByName.set(key, dm);
     }
   }
+  const phoneByDigits = new Map<string, SourcedPhone>();
+  for (const p of [...staticAgg.phones, ...renderedAgg.phones]) {
+    const digits = p.value.replace(/[^\d]/g, '');
+    if (!phoneByDigits.has(digits)) phoneByDigits.set(digits, p);
+  }
 
-  // ---- Build contacts: pair DMs with emails by name match -------------
+  // ---- 4. Build contacts ------------------------------------------------
   const contacts: DiscoveredContact[] = [];
+
+  // 4a. DMs paired with matched emails
   for (const dm of dmByName.values()) {
-    const match = Array.from(allEmails.values()).find((e) =>
+    const match = Array.from(emailByAddr.values()).find((e) =>
       emailMatchesName(e.local, dm.name),
     );
     contacts.push({
@@ -155,6 +273,7 @@ export async function discoverContactsForCompany(
       emailStatus: match ? 'extracted' : null,
       linkedinUrl: null,
       sourceUrl: dm.sourceUrl,
+      source: dm.source,
       roleConfidence: dm.roleConfidence,
       emailConfidence: match ? 85 : 0,
       overallConfidence: 0,
@@ -162,8 +281,8 @@ export async function discoverContactsForCompany(
     });
   }
 
-  // ---- Add general / role emails that didn't pair with a DM -----------
-  for (const info of allEmails.values()) {
+  // 4b. General / role emails not paired with a DM
+  for (const info of emailByAddr.values()) {
     if (contacts.some((c) => c.email === info.email)) continue;
     contacts.push({
       name: null,
@@ -174,6 +293,7 @@ export async function discoverContactsForCompany(
       emailStatus: 'extracted',
       linkedinUrl: null,
       sourceUrl: info.sourceUrl,
+      source: info.source,
       roleConfidence: 0,
       emailConfidence: info.type === 'personal' ? 70 : 55,
       overallConfidence: 0,
@@ -181,7 +301,7 @@ export async function discoverContactsForCompany(
     });
   }
 
-  // ---- Pattern-guess emails for DMs with no direct email --------------
+  // 4c. Pattern-guess emails for DMs we couldn't pair
   const domain = extractDomain(opts.websiteUrl);
   if (domain) {
     for (const c of contacts) {
@@ -192,13 +312,15 @@ export async function discoverContactsForCompany(
         c.emailType = 'personal';
         c.emailStatus = 'guessed';
         c.emailConfidence = 35;
+        // c.source is left as 'static' or 'playwright' — the NAME was
+        // discovered there; only the email is guessed.
       }
     }
   }
 
-  // ---- If still nothing, add fallback role emails as last resort ------
-  const hasEmail = contacts.some((c) => c.email);
-  if (!hasEmail && domain) {
+  // 4d. Fallback role emails if we still have nothing
+  const anyEmail = contacts.some((c) => c.email);
+  if (!anyEmail && domain) {
     for (const guess of fallbackRoleEmails(domain).slice(0, 2)) {
       contacts.push({
         name: null,
@@ -208,7 +330,8 @@ export async function discoverContactsForCompany(
         emailType: 'info',
         emailStatus: 'guessed',
         linkedinUrl: null,
-        sourceUrl: pages[0].url,
+        sourceUrl: (staticPages[0] ?? renderedPages[0])?.url ?? opts.websiteUrl,
+        source: 'inferred',
         roleConfidence: 0,
         emailConfidence: 25,
         overallConfidence: 0,
@@ -217,14 +340,12 @@ export async function discoverContactsForCompany(
     }
   }
 
-  // ---- Compute confidences + pick primary -----------------------------
-  for (const c of contacts) {
-    c.overallConfidence = scoreContact(c);
-  }
+  // ---- 5. Score + pick primary ----------------------------------------
+  for (const c of contacts) c.overallConfidence = scoreContact(c);
   contacts.sort((a, b) => b.overallConfidence - a.overallConfidence);
   if (contacts[0]) contacts[0].isPrimary = true;
 
-  // ---- Routes ---------------------------------------------------------
+  // ---- 6. Routes -------------------------------------------------------
   const routes: DiscoveredRoute[] = [];
   for (const c of contacts) {
     if (!c.email) continue;
@@ -235,10 +356,11 @@ export async function discoverContactsForCompany(
       confidence: c.emailConfidence,
     });
   }
-  for (const p of phones.values()) {
+  for (const p of phoneByDigits.values()) {
     routes.push({ type: 'PHONE', value: p.value, sourceUrl: p.sourceUrl, confidence: 80 });
   }
-  for (const page of pages) {
+  const allPages = [...staticPages, ...renderedPages];
+  for (const page of allPages) {
     if (page.forms.some((f) => f.hasEmailInput)) {
       routes.push({
         type: 'CONTACT_FORM',
@@ -249,7 +371,7 @@ export async function discoverContactsForCompany(
       break;
     }
   }
-  for (const page of pages) {
+  for (const page of allPages) {
     const booking = page.links.find((l) =>
       /calendly\.com|cal\.com|savvycal\.com|acuityscheduling\.com|hubspot\.com\/meetings|setmore\.com|fresha\.com/i.test(
         l.href,
@@ -265,7 +387,7 @@ export async function discoverContactsForCompany(
       break;
     }
   }
-  for (const page of pages) {
+  for (const page of allPages) {
     const li = page.links.find((l) =>
       /linkedin\.com\/(?:company|in|school)\//i.test(l.href),
     );
@@ -279,7 +401,7 @@ export async function discoverContactsForCompany(
       break;
     }
   }
-  const contactPage = pages.find((p) => /\/contact/i.test(p.url));
+  const contactPage = allPages.find((p) => /\/contact/i.test(p.url));
   if (contactPage) {
     routes.push({
       type: 'GENERAL_CONTACT_PAGE',
@@ -291,7 +413,7 @@ export async function discoverContactsForCompany(
 
   const contactabilityScore = contactabilityForCompany(contacts, routes);
 
-  // ---- Persist --------------------------------------------------------
+  // ---- 7. Persist ------------------------------------------------------
   for (const c of contacts) {
     insertOrUpdateContact(opts.companyId, c, db);
   }
@@ -304,15 +426,27 @@ export async function discoverContactsForCompany(
     contacts,
     routes,
     contactabilityScore,
-    pagesCrawled: pages.length,
+    pagesCrawled: staticPages.length + renderedPages.length,
+    staticPagesCrawled: staticPages.length,
+    playwrightPagesCrawled: renderedPages.length,
+    playwrightRan,
+    playwrightReason: decision.reason,
+    playwrightError,
     fromCache: false,
     durationMs: Date.now() - startedAt,
   };
 }
 
-// ---------------------------------------------------------------------------
-// Helpers — map persisted rows back to the DiscoveredContact / Route shape.
-// ---------------------------------------------------------------------------
+function dedupeDmsByName(dms: SourcedDm[]): Map<string, SourcedDm> {
+  const out = new Map<string, SourcedDm>();
+  for (const dm of dms) {
+    const key = dm.name.toLowerCase();
+    const existing = out.get(key);
+    if (!existing || dm.roleConfidence > existing.roleConfidence) out.set(key, dm);
+  }
+  return out;
+}
+
 function rowToDiscoveredContact(row: {
   name: string | null;
   role: string | null;
@@ -320,6 +454,7 @@ function rowToDiscoveredContact(row: {
   email_type: string | null;
   email_status: string | null;
   linkedin_url: string | null;
+  source: string | null;
   source_url: string | null;
   role_confidence: number | null;
   email_confidence: number | null;
@@ -335,6 +470,7 @@ function rowToDiscoveredContact(row: {
     emailStatus: row.email_status as DiscoveredContact['emailStatus'],
     linkedinUrl: row.linkedin_url,
     sourceUrl: row.source_url ?? '',
+    source: (row.source as ContactSource) ?? 'static',
     roleConfidence: row.role_confidence ?? 0,
     emailConfidence: row.email_confidence ?? 0,
     overallConfidence: row.overall_confidence ?? 0,

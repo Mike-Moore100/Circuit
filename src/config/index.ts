@@ -64,6 +64,12 @@ export const config = {
       .filter(Boolean) as Array<'A' | 'B' | 'C'>,
   },
 
+  contactPlaywright: {
+    enabled: (process.env.CONTACT_PLAYWRIGHT_FALLBACK_ENABLED ?? '1') !== '0',
+    maxPagesPerCompany: envInt('CONTACT_PLAYWRIGHT_MAX_PAGES_PER_COMPANY', 3),
+    timeoutMs: envInt('CONTACT_PLAYWRIGHT_TIMEOUT_MS', 12000),
+  },
+
   contactDiscovery: {
     enabled: (process.env.CONTACT_DISCOVERY_ENABLED ?? '1') !== '0',
     maxPagesPerSite: envInt('CONTACT_DISCOVERY_MAX_PAGES_PER_SITE', 4),

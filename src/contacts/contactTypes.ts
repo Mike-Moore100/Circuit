@@ -60,6 +60,7 @@ export interface DiscoveredContact {
   emailStatus: EmailStatus | null;
   linkedinUrl: string | null;
   sourceUrl: string;
+  source: 'static' | 'playwright' | 'guessed' | 'inferred';
   roleConfidence: number;
   emailConfidence: number;
   overallConfidence: number;
@@ -73,6 +74,8 @@ export interface DiscoveredRoute {
   confidence: number;
 }
 
+export type ContactSource = 'static' | 'playwright' | 'guessed' | 'inferred';
+
 export interface ContactDiscoveryResult {
   companyId: string;
   contacts: DiscoveredContact[];
@@ -81,6 +84,12 @@ export interface ContactDiscoveryResult {
   pagesCrawled: number;
   fromCache: boolean;
   durationMs: number;
+  // Phase 8.1 telemetry — what triggered the Playwright fallback (or didn't)
+  staticPagesCrawled: number;
+  playwrightPagesCrawled: number;
+  playwrightRan: boolean;
+  playwrightReason: string;
+  playwrightError?: string;
   errorMessage?: string;
 }
 

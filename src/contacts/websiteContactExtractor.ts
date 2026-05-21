@@ -38,6 +38,10 @@ export interface ContactPage {
   forms: Array<{ action: string | null; hasEmailInput: boolean }>;
   root: HTMLElement;
   rawHtmlLength: number;
+  // First 8KB of the raw HTML — used by the JS-rendered detector to look
+  // for SPA framework markers (data-reactroot, wix-image, etc.) without
+  // re-fetching. Truncated to avoid DB / dashboard bloat.
+  rawHtmlPreview: string;
   errorMessage?: string;
 }
 
@@ -157,6 +161,7 @@ function parsePage(rawUrl: string, finalUrl: string, statusCode: number, html: s
     forms,
     root,
     rawHtmlLength: html.length,
+    rawHtmlPreview: html.slice(0, 8 * 1024),
   };
 }
 

@@ -1053,6 +1053,24 @@ body:has(.drawer) .app-main { padding-right: 500px; }
 .email-status.email-status-extracted { background: var(--success-soft); color: var(--success); border-color: var(--success-border); }
 .email-status.email-status-verified  { background: var(--success-soft); color: var(--success); border-color: var(--success-border); }
 .email-status.email-status-guessed   { background: var(--warning-soft); color: var(--warning); border-color: var(--warning-border); }
+/* Phase 8.1: how the contact was discovered (static crawl, Playwright
+   fallback, pattern-guessed, or inferred from domain). */
+.contact-source-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-muted);
+}
+.contact-source-tag.contact-source-static     { background: var(--bg-muted); color: var(--text-muted); }
+.contact-source-tag.contact-source-playwright { background: var(--info-soft); color: var(--info); border-color: var(--info-border); }
+.contact-source-tag.contact-source-guessed    { background: var(--warning-soft); color: var(--warning); border-color: var(--warning-border); }
+.contact-source-tag.contact-source-inferred   { background: var(--bg-subtle); color: var(--text-subtle); }
+.contact-source-tag.contact-source-source-feed { background: var(--bg-subtle); color: var(--text-subtle); }
 .email-type {
   font-size: 10px;
   text-transform: uppercase;

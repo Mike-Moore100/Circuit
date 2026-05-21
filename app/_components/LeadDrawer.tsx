@@ -276,7 +276,22 @@ export function LeadDrawer({ lead, signals, ai, currentReview, contacts, evidenc
                       <div className="contact-row">
                         <strong className="contact-name">{c.name ?? '—'}</strong>
                         {c.role && <span className="contact-role">{c.role}</span>}
-                        <span className="contact-confidence" data-conf={c.overallConfidence >= 70 ? 'high' : c.overallConfidence >= 40 ? 'medium' : 'low'}>
+                        <span
+                          className={`contact-source-tag contact-source-${c.source}`}
+                          title={`Discovered via ${c.source}`}
+                        >
+                          {c.source}
+                        </span>
+                        <span
+                          className="contact-confidence"
+                          data-conf={
+                            c.overallConfidence >= 70
+                              ? 'high'
+                              : c.overallConfidence >= 40
+                              ? 'medium'
+                              : 'low'
+                          }
+                        >
                           {c.overallConfidence}
                         </span>
                       </div>

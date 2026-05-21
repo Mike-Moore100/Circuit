@@ -150,6 +150,8 @@ export interface LeadContact {
   emailStatus: string | null;
   linkedinUrl: string | null;
   sourceUrl: string | null;
+  // 'static' | 'playwright' | 'guessed' | 'inferred'
+  source: string;
   overallConfidence: number;
   isPrimary: boolean;
 }
@@ -259,6 +261,9 @@ export function getContactsForLead(companyId: string): LeadContactBundle {
     emailStatus: c.email_status,
     linkedinUrl: c.linkedin_url,
     sourceUrl: c.source_url,
+    // 'static' | 'playwright' | 'guessed' | 'inferred' | 'source-feed'.
+    // Older rows may carry 'website' (pre-Phase-8.1) — surface as 'static'.
+    source: c.source === 'website' ? 'static' : c.source ?? 'static',
     // Legacy Phase-1 contacts only populated `confidence`; fall back so the
     // dashboard doesn't show 0 for a real Founder + email pair.
     overallConfidence: c.overall_confidence ?? c.confidence ?? 0,

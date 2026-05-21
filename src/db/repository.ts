@@ -148,8 +148,8 @@ export function upsertContactFromLead(
     created_at: now(),
   };
   db.prepare(
-    `INSERT INTO contacts (id, company_id, name, role, email, linkedin_url, confidence, created_at)
-     VALUES (@id, @company_id, @name, @role, @email, @linkedin_url, @confidence, @created_at)`,
+    `INSERT INTO contacts (id, company_id, name, role, email, linkedin_url, confidence, created_at, source)
+     VALUES (@id, @company_id, @name, @role, @email, @linkedin_url, @confidence, @created_at, 'source-feed')`,
   ).run(contact);
   return contact;
 }
@@ -232,6 +232,10 @@ export function insertOrUpdateContact(
     emailStatus: string | null;
     linkedinUrl: string | null;
     sourceUrl: string;
+    // Phase 8.1: 'static' | 'playwright' | 'guessed' | 'inferred' — how
+    // this contact was originally discovered. Defaults to 'static' for
+    // back-compat with callers that don't pass it.
+    source?: string;
     roleConfidence: number;
     emailConfidence: number;
     overallConfidence: number;
@@ -239,7 +243,12 @@ export function insertOrUpdateContact(
   },
   db: Database = getDb(),
 ): ContactRow {
-  const existing = findExistingContact(companyId, { ...input, source: 'website', contactType: null } as DiscoveredContactInput, db);
+  const source = input.source ?? 'static';
+  const existing = findExistingContact(
+    companyId,
+    { ...input, source, contactType: null } as DiscoveredContactInput,
+    db,
+  );
   if (existing) {
     db.prepare(
       `UPDATE contacts SET
@@ -247,7 +256,7 @@ export function insertOrUpdateContact(
          role               = COALESCE(?, role),
          email              = COALESCE(?, email),
          linkedin_url       = COALESCE(?, linkedin_url),
-         source             = COALESCE(?, source),
+         source             = ?,
          source_url         = COALESCE(?, source_url),
          email_type         = COALESCE(?, email_type),
          email_status       = COALESCE(?, email_status),
@@ -263,7 +272,7 @@ export function insertOrUpdateContact(
       input.role,
       input.email,
       input.linkedinUrl,
-      'website',
+      source,
       input.sourceUrl,
       input.emailType,
       input.emailStatus,
@@ -275,12 +284,13 @@ export function insertOrUpdateContact(
       now(),
       existing.id,
     );
-    return { ...existing,
+    return {
+      ...existing,
       name: input.name ?? existing.name,
       role: input.role ?? existing.role,
       email: input.email ?? existing.email,
       linkedin_url: input.linkedinUrl ?? existing.linkedin_url,
-      source: 'website',
+      source,
       source_url: input.sourceUrl,
       email_type: input.emailType,
       email_status: input.emailStatus,
@@ -302,7 +312,7 @@ export function insertOrUpdateContact(
     confidence: input.overallConfidence,
     created_at: now(),
     contact_type: null,
-    source: 'website',
+    source,
     source_url: input.sourceUrl,
     email_type: input.emailType,
     email_status: input.emailStatus,
@@ -511,17 +521,19 @@ export function getContactStats(db: Database = getDb()): {
   withPhone: number;
   withBooking: number;
   noContact: number;
+  bySource: Record<string, number>;
 } {
   const companies = db
     .prepare('SELECT id FROM companies WHERE status NOT IN (?, ?)')
     .all('rejected', 'archived') as Array<{ id: string }>;
   const contacts = db
-    .prepare('SELECT company_id, name, email, email_status FROM contacts')
+    .prepare('SELECT company_id, name, email, email_status, source FROM contacts')
     .all() as Array<{
     company_id: string;
     name: string | null;
     email: string | null;
     email_status: string | null;
+    source: string | null;
   }>;
   const routes = db
     .prepare('SELECT company_id, route_type FROM contact_routes')
@@ -545,6 +557,7 @@ export function getContactStats(db: Database = getDb()): {
   let withPhone = 0;
   let withBooking = 0;
   let noContact = 0;
+  const bySource: Record<string, number> = {};
 
   for (const co of companies) {
     const cs = contactByCompany.get(co.id) ?? [];
@@ -561,6 +574,12 @@ export function getContactStats(db: Database = getDb()): {
     if (cs.length === 0 && rs.size === 0) noContact += 1;
   }
 
+  // Per-source breakdown across ALL contact rows (not company-level).
+  for (const c of contacts) {
+    const key = c.source ?? 'unknown';
+    bySource[key] = (bySource[key] ?? 0) + 1;
+  }
+
   return {
     total: companies.length,
     withDirectEmail,
@@ -570,6 +589,7 @@ export function getContactStats(db: Database = getDb()): {
     withPhone,
     withBooking,
     noContact,
+    bySource,
   };
 }
 
