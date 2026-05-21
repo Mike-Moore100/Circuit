@@ -1,0 +1,78 @@
+// SQLite schema. Idempotent: safe to run on every boot.
+export const SCHEMA_SQL = /* sql */ `
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS companies (
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  domain        TEXT,
+  website_url   TEXT,
+  industry      TEXT,
+  location      TEXT,
+  size_estimate INTEGER,
+  source        TEXT NOT NULL,
+  source_url    TEXT,
+  status        TEXT NOT NULL DEFAULT 'new',
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS companies_domain_idx
+  ON companies(domain) WHERE domain IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS companies_status_idx ON companies(status);
+
+CREATE TABLE IF NOT EXISTS contacts (
+  id           TEXT PRIMARY KEY,
+  company_id   TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  name         TEXT,
+  role         TEXT,
+  email        TEXT,
+  linkedin_url TEXT,
+  confidence   REAL,
+  created_at   TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS contacts_company_idx ON contacts(company_id);
+
+CREATE TABLE IF NOT EXISTS signals (
+  id         TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  type       TEXT NOT NULL,
+  value      TEXT NOT NULL,
+  confidence REAL NOT NULL,
+  source     TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS signals_company_idx ON signals(company_id);
+CREATE INDEX IF NOT EXISTS signals_type_idx    ON signals(type);
+
+CREATE TABLE IF NOT EXISTS lead_scores (
+  id           TEXT PRIMARY KEY,
+  company_id   TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  rule_score   REAL NOT NULL,
+  intent_score REAL NOT NULL,
+  final_score  REAL NOT NULL,
+  priority     TEXT NOT NULL,
+  reasons_json TEXT NOT NULL,
+  created_at   TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS lead_scores_company_idx  ON lead_scores(company_id);
+CREATE INDEX IF NOT EXISTS lead_scores_priority_idx ON lead_scores(priority);
+
+CREATE TABLE IF NOT EXISTS review_queue (
+  id         TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL UNIQUE REFERENCES companies(id) ON DELETE CASCADE,
+  status     TEXT NOT NULL DEFAULT 'queued',
+  priority   TEXT NOT NULL,
+  notes      TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS review_queue_priority_idx ON review_queue(priority);
+CREATE INDEX IF NOT EXISTS review_queue_status_idx   ON review_queue(status);
+`;

@@ -1,0 +1,33 @@
+{
+  "name": "circuit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Low-cost AI lead sourcing and opportunity intelligence for small/mid-sized businesses.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "seed": "tsx scripts/seed.ts",
+    "pipeline": "tsx scripts/pipeline.ts",
+    "debug:score": "tsx scripts/debugScore.ts",
+    "db:reset": "tsx scripts/resetDb.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^20.16.10",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.2"
+  }
+}
