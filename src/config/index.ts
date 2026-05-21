@@ -1,3 +1,6 @@
+// Side-effect import: loads .env into process.env before we read keys below.
+// Must be the first import in this file so all subsequent reads see it.
+import './loadEnv';
 import path from 'node:path';
 
 const projectRoot = process.cwd();

@@ -415,7 +415,7 @@ export default async function DashboardPage({
                           scroll={false}
                           className="company-link"
                         >
-                          <Avatar name={row.company} size={28} />
+                          <Avatar name={row.company} size={22} />
                           <div className="company-line">
                             <div className="lead-name-compact">
                               {row.company}
