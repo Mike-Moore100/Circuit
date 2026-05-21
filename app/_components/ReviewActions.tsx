@@ -11,17 +11,42 @@ interface Props {
   status: Status;
 }
 
-const NEXT_LABEL: Record<Action, string> = {
+const LABELS: Record<Action, string> = {
   accept: 'Accept',
   reject: 'Reject',
-  contacted: 'Contacted',
+  contacted: 'Mark contacted',
   requeue: 'Re-queue',
 };
+
+// Hick's law: only show the next-step actions that make sense for the
+// current status. Primary action is the most likely next move.
+function actionsFor(status: Status): { primary: Action | null; secondary: Action[] } {
+  switch (status) {
+    case 'queued':
+      return { primary: 'accept', secondary: ['reject'] };
+    case 'investigating':
+      return { primary: 'contacted', secondary: ['reject', 'requeue'] };
+    case 'contacted':
+      return { primary: 'requeue', secondary: ['reject'] };
+    case 'rejected':
+      return { primary: 'requeue', secondary: [] };
+    default:
+      return { primary: null, secondary: [] };
+  }
+}
+
+function btnClassFor(action: Action, isPrimary: boolean): string {
+  if (action === 'accept' && isPrimary) return 'btn btn-success';
+  if (action === 'reject') return 'btn btn-danger';
+  if (isPrimary) return 'btn btn-primary';
+  return 'btn btn-ghost';
+}
 
 export function ReviewActions({ companyId, status }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { primary, secondary } = actionsFor(status);
 
   async function send(action: Action) {
     setError(null);
@@ -38,28 +63,29 @@ export function ReviewActions({ companyId, status }: Props) {
     startTransition(() => router.refresh());
   }
 
-  const visible: Action[] =
-    status === 'queued'
-      ? ['accept', 'reject']
-      : status === 'investigating'
-      ? ['contacted', 'reject', 'requeue']
-      : status === 'contacted'
-      ? ['reject', 'requeue']
-      : ['requeue'];
-
   return (
-    <div className="review-actions">
-      <span className={`status-tag status-${status}`}>{status}</span>
+    <div className="action-cluster">
+      <span className={`status-pill ${status}`}>{status}</span>
       <div className="action-row">
-        {visible.map((action) => (
+        {primary && (
+          <button
+            type="button"
+            onClick={() => send(primary)}
+            disabled={isPending}
+            className={btnClassFor(primary, true)}
+          >
+            {LABELS[primary]}
+          </button>
+        )}
+        {secondary.map((action) => (
           <button
             key={action}
+            type="button"
             onClick={() => send(action)}
             disabled={isPending}
-            className={`action-btn action-${action}`}
-            type="button"
+            className={btnClassFor(action, false)}
           >
-            {NEXT_LABEL[action]}
+            {LABELS[action]}
           </button>
         ))}
       </div>
