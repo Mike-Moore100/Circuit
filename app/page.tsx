@@ -313,286 +313,220 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ============ Hero pipeline card ============ */}
+      {/* ============ Compact overview strip ============ */}
       <section className="section" id="overview">
-        <div className="hero">
-          <div>
-            <div className="hero-stat-label">In review queue</div>
-            <div className="hero-stat-value">{data.reviewQueue.length}</div>
-            <div className="hero-stat-foot">
-              <span>
-                {data.totals.accepted} accepted · {data.totals.rejected} rejected · avg score{' '}
-                <strong style={{ color: 'var(--text)' }}>{avg ?? '—'}</strong>
-              </span>
-              {data.priorityCounts.A > 0 && (
-                <span className="hero-trend">
-                  {icon.trending}
-                  {data.priorityCounts.A} priority A
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="hero-divider" aria-hidden />
-          <div style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'center' }}>
-            <PriorityDonut counts={data.priorityCounts} />
-            <div className="donut-legend">
-              {(['A', 'B', 'C', 'Reject'] as Priority[]).map((key) => (
-                <div key={key} className={`legend-row ${key}`}>
-                  <span className="legend-key">
-                    {key === 'Reject' ? 'Reject' : `Priority ${key}`}
-                  </span>
-                  <span className="legend-value">{data.priorityCounts[key]}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ============ AI overview ============ */}
-      {data.ai.total > 0 && (
-        <section className="section">
-          <div className="section-head">
-            <h2 className="section-title">AI analysis</h2>
-            <span className="section-meta">
-              Daily limit ${data.ai.dailyLimitUsd.toFixed(2)} · selective enrichment on top
-              priority leads only
+        <div className="overview-strip">
+          <div className="overview-item primary">
+            <span className="overview-label">In queue</span>
+            <span className="overview-value">{data.reviewQueue.length}</span>
+            <span className="overview-foot priority-dots">
+              <span className="dot A" /> {data.priorityCounts.A}
+              <span className="dot B" style={{ marginLeft: 8 }} /> {data.priorityCounts.B}
+              <span className="dot C" style={{ marginLeft: 8 }} /> {data.priorityCounts.C}
             </span>
           </div>
-          <div className="stats-grid">
-            <div className="stat">
-              <span className="stat-label">Analyses</span>
-              <span className="stat-value">{data.ai.ok}</span>
-              <span className="stat-foot">
-                {data.ai.failed} failed · {data.ai.total} total
-              </span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">Spent today</span>
-              <span className="stat-value">${data.ai.todayCostUsd.toFixed(3)}</span>
-              <span className="stat-foot">
-                of ${data.ai.dailyLimitUsd.toFixed(2)} daily cap
-              </span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">Feedback</span>
-              <span className="stat-value">{data.ai.feedback.approved ?? 0}</span>
-              <span className="stat-foot">
-                approved · {data.ai.feedback.hallucination ?? 0} flagged ·{' '}
-                {data.ai.feedback.pending ?? data.ai.total - (data.ai.feedback.approved ?? 0)}{' '}
-                pending
-              </span>
-            </div>
+          <div className="overview-item">
+            <span className="overview-label">Avg score</span>
+            <span className="overview-value">{avg ?? '—'}</span>
+            <span className="overview-foot">{data.totals.processed} processed</span>
           </div>
-        </section>
-      )}
-
-      {/* ============ Secondary stats ============ */}
-      <section className="section">
-        <div className="stats-grid">
-          <div className="stat">
-            <span className="stat-icon">{icon.check}</span>
-            <span className="stat-label">Leads processed</span>
-            <span className="stat-value">{data.totals.processed}</span>
-            <span className="stat-foot">
-              {data.totals.accepted} accepted · {data.totals.rejected} rejected
-            </span>
-          </div>
-          <div className="stat">
-            <span className="stat-icon" style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent)' }}>
-              {icon.globe}
-            </span>
-            <span className="stat-label">Website verification</span>
-            <span className="stat-value">
+          <div className="overview-item">
+            <span className="overview-label">Inspected</span>
+            <span className="overview-value">
               {inspectedOk}
-              <span style={{ color: 'var(--text-subtle)', fontWeight: 500, fontSize: 18 }}>
-                {' '}
-                / {data.inspection.inspected}
-              </span>
+              <span className="overview-of">/{data.inspection.inspected}</span>
             </span>
-            <span className="stat-foot">
-              <span className="verification-bar" title={`${inspectedOk} ok · ${data.inspection.failed} failed`}>
-                <span className="ok" style={{ width: `${okPct}%` }} />
-                <span className="fail" style={{ width: `${failPct}%` }} />
-              </span>
-            </span>
-            <span className="stat-foot" style={{ marginTop: -4 }}>
-              {data.inspection.failed} failed · {data.inspection.aiProvider} AI provider
-            </span>
+            <span className="overview-foot">{data.inspection.failed} failed</span>
           </div>
-          <div className="stat">
-            <span className="stat-icon" style={{ background: 'rgba(5, 150, 105, 0.1)', color: 'var(--success)' }}>
-              {icon.zap}
-            </span>
-            <span className="stat-label">Quality signals</span>
-            <span className="stat-value">
-              {data.inspection.withContactForm + data.inspection.withBookingLink + data.inspection.highAutomationFit}
-            </span>
-            <span className="stat-foot">
-              {data.inspection.withContactForm} contact · {data.inspection.withBookingLink} booking ·{' '}
-              {data.inspection.highAutomationFit} high-fit
-            </span>
-          </div>
+          {data.ai.total > 0 && (
+            <div className="overview-item">
+              <span className="overview-label">AI spent today</span>
+              <span className="overview-value">${data.ai.todayCostUsd.toFixed(2)}</span>
+              <span className="overview-foot">of ${data.ai.dailyLimitUsd.toFixed(2)} cap</span>
+            </div>
+          )}
+          {data.validation.falseRejectCandidates.length > 0 && (
+            <a href="#diagnostics" className="overview-item overview-alert">
+              <span className="overview-label">Suspicious</span>
+              <span className="overview-value">{data.validation.falseRejectCandidates.length}</span>
+              <span className="overview-foot">click to review</span>
+            </a>
+          )}
         </div>
       </section>
 
-      {/* ============ Campaign segments ============ */}
-      <section className="section" id="campaigns">
-        <div className="section-head">
-          <h2 className="section-title">Campaign segments</h2>
-          <span className="section-meta">
-            How leads are routed — every non-reject lead lands in a specific
-            campaign, not a generic "review" pile
-          </span>
-        </div>
-        <div className="campaign-grid">
-          {(
-            [
-              'AI_AUTOMATION',
-              'WEB_REBUILD',
-              'FUNNEL_OPTIMIZATION',
-              'LOCAL_DIGITAL_UPGRADE',
-              'LOW_PRIORITY_NURTURE',
-              'REJECT',
-            ] as Campaign[]
-          ).map((c) => (
-            <div key={c} className={`campaign-card campaign-${c}`}>
-              <div className="campaign-card-head">
-                <span className={`campaign-tag campaign-${c}`}>{CAMPAIGN_LABEL[c]}</span>
-                <span className="campaign-count">{data.campaignCounts[c]}</span>
+      {/* ============ Pipeline diagnostics (collapsed by default) ============ */}
+      <section className="section" id="diagnostics">
+        <details className="disclosure">
+          <summary>
+            Pipeline diagnostics
+            <span className="summary-meta">
+              Campaign distribution · AI analysis · website inspection · validation metrics · source quality
+            </span>
+          </summary>
+          <div className="disclosure-body" style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+            {/* Campaign segments */}
+            <div>
+              <div className="section-head" style={{ marginBottom: 'var(--space-2)' }}>
+                <h3 className="section-title" style={{ fontSize: 'var(--text-xs)' }}>Campaign segments</h3>
               </div>
-              <p className="campaign-desc">{CAMPAIGN_DESCRIPTION[c]}</p>
+              <div className="campaign-grid">
+                {(
+                  [
+                    'AI_AUTOMATION',
+                    'WEB_REBUILD',
+                    'FUNNEL_OPTIMIZATION',
+                    'LOCAL_DIGITAL_UPGRADE',
+                    'LOW_PRIORITY_NURTURE',
+                    'REJECT',
+                  ] as Campaign[]
+                ).map((c) => (
+                  <div key={c} className={`campaign-card campaign-${c}`}>
+                    <div className="campaign-card-head">
+                      <span className={`campaign-tag campaign-${c}`}>{CAMPAIGN_LABEL[c]}</span>
+                      <span className="campaign-count">{data.campaignCounts[c]}</span>
+                    </div>
+                    <p className="campaign-desc">{CAMPAIGN_DESCRIPTION[c]}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* ============ Validation panel ============ */}
-      <section className="section" id="validation">
-        <div className="section-head">
-          <h2 className="section-title">Validation</h2>
-          <span className="section-meta">
-            How well the segmentation aligns with reality — reviewer feedback
-            drives the false-positive / false-reject rates
-          </span>
-        </div>
-
-        <div className="panel">
-          <table className="runs-table">
-            <thead>
-              <tr>
-                <th>Campaign</th>
-                <th>Total</th>
-                <th>Avg score</th>
-                <th>Reviewed</th>
-                <th>Correct %</th>
-                <th>False reject %</th>
-                <th>False positive %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.validation.campaignMetrics.map((m) => (
-                <tr key={m.campaign}>
-                  <td>
-                    <span className={`campaign-tag campaign-${m.campaign}`}>
-                      {CAMPAIGN_LABEL[m.campaign]}
-                    </span>
-                  </td>
-                  <td className="num">{m.total}</td>
-                  <td className="num">{m.avgFinalScore || '—'}</td>
-                  <td className="num">{m.reviewedTotal}</td>
-                  <td className="num">{fmtPct(m.correctRate)}</td>
-                  <td className="num">{fmtPct(m.falseRejectRate)}</td>
-                  <td className="num">{fmtPct(m.falsePositiveRate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {data.validation.sourceQuality.length > 0 && (
-          <details className="disclosure" style={{ marginTop: 12 }}>
-            <summary>
-              Source quality
-              <span className="summary-meta">
-                {data.validation.sourceQuality.length} source{data.validation.sourceQuality.length === 1 ? '' : 's'} feeding the pipeline
-              </span>
-            </summary>
-            <div className="disclosure-body">
-              <table className="runs-table">
-                <thead>
-                  <tr>
-                    <th>Source</th>
-                    <th>Total leads</th>
-                    <th>Avg score</th>
-                    <th>Inspection failure %</th>
-                    <th>Strong opportunities</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.validation.sourceQuality.map((s) => (
-                    <tr key={s.source}>
-                      <td>{s.source}</td>
-                      <td className="num">{s.totalLeads}</td>
-                      <td className="num">{s.avgFinalScore || '—'}</td>
-                      <td className="num">{fmtPct(s.inspectionFailureRate)}</td>
-                      <td className="num">{s.strongOpportunities}</td>
+            {/* Validation metrics */}
+            <div>
+              <div className="section-head" style={{ marginBottom: 'var(--space-2)' }}>
+                <h3 className="section-title" style={{ fontSize: 'var(--text-xs)' }}>Validation metrics</h3>
+                <span className="section-meta">Reviewer feedback drives the false-positive / false-reject rates</span>
+              </div>
+              <div className="panel">
+                <table className="runs-table">
+                  <thead>
+                    <tr>
+                      <th>Campaign</th>
+                      <th>Total</th>
+                      <th>Avg score</th>
+                      <th>Reviewed</th>
+                      <th>Correct %</th>
+                      <th>False reject %</th>
+                      <th>False positive %</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.validation.campaignMetrics.map((m) => (
+                      <tr key={m.campaign}>
+                        <td>
+                          <span className={`campaign-tag campaign-${m.campaign}`}>
+                            {CAMPAIGN_LABEL[m.campaign]}
+                          </span>
+                        </td>
+                        <td className="num">{m.total}</td>
+                        <td className="num">{m.avgFinalScore || '—'}</td>
+                        <td className="num">{m.reviewedTotal}</td>
+                        <td className="num">{fmtPct(m.correctRate)}</td>
+                        <td className="num">{fmtPct(m.falseRejectRate)}</td>
+                        <td className="num">{fmtPct(m.falsePositiveRate)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </details>
-        )}
 
-        {data.validation.falseRejectCandidates.length > 0 && (
-          <details className="disclosure">
-            <summary>
-              Suspicious leads (sanity check)
-              <span className="summary-meta">
-                {data.validation.falseRejectCandidates.length} flagged for manual review
-              </span>
-            </summary>
-            <div className="disclosure-body">
-              <table className="runs-table">
-                <thead>
-                  <tr>
-                    <th>Company</th>
-                    <th>Campaign</th>
-                    <th>Score</th>
-                    <th>Why flagged</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.validation.falseRejectCandidates.map((c) => (
-                    <tr key={c.companyId}>
-                      <td>{c.company}</td>
-                      <td>
-                        <span className={`campaign-tag campaign-${c.primaryCampaign}`}>
-                          {CAMPAIGN_LABEL[c.primaryCampaign]}
-                        </span>
-                      </td>
-                      <td className="num">{c.finalScore}</td>
-                      <td>
-                        {c.flagReason}
-                        {c.evidence.length > 0 && (
-                          <ul className="reason-list" style={{ marginTop: 6 }}>
-                            {c.evidence.map((e, i) => (
-                              <li key={i} className="reason pos">
-                                <span className="delta">·</span>
-                                <span className="label">{e}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
-        )}
+            {/* AI / Inspection inline summaries */}
+            {(data.ai.total > 0 || data.inspection.inspected > 0) && (
+              <div className="diagnostics-row">
+                {data.ai.total > 0 && (
+                  <div className="diagnostics-cell">
+                    <h3 className="section-title" style={{ fontSize: 'var(--text-xs)' }}>AI analysis</h3>
+                    <p className="note" style={{ margin: '4px 0 0' }}>
+                      <strong>{data.ai.ok}</strong> analyses · <strong>${data.ai.todayCostUsd.toFixed(3)}</strong> today /
+                      ${data.ai.dailyLimitUsd.toFixed(2)} cap · {data.ai.failed} failed ·{' '}
+                      {data.ai.feedback.approved ?? 0} approved · {data.ai.feedback.hallucination ?? 0} flagged
+                    </p>
+                  </div>
+                )}
+                {data.inspection.inspected > 0 && (
+                  <div className="diagnostics-cell">
+                    <h3 className="section-title" style={{ fontSize: 'var(--text-xs)' }}>Website inspection</h3>
+                    <p className="note" style={{ margin: '4px 0 0' }}>
+                      <strong>{inspectedOk}</strong> / {data.inspection.inspected} loaded ·{' '}
+                      {data.inspection.failed} failed · {data.inspection.withContactForm} contact forms ·{' '}
+                      {data.inspection.withBookingLink} booking links · {data.inspection.aiProvider} AI providers (avoid)
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {data.validation.sourceQuality.length > 0 && (
+              <div>
+                <div className="section-head" style={{ marginBottom: 'var(--space-2)' }}>
+                  <h3 className="section-title" style={{ fontSize: 'var(--text-xs)' }}>Source quality</h3>
+                </div>
+                <div className="panel">
+                  <table className="runs-table">
+                    <thead>
+                      <tr>
+                        <th>Source</th>
+                        <th>Total leads</th>
+                        <th>Avg score</th>
+                        <th>Inspection failure %</th>
+                        <th>Strong opportunities</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.validation.sourceQuality.map((s) => (
+                        <tr key={s.source}>
+                          <td>{s.source}</td>
+                          <td className="num">{s.totalLeads}</td>
+                          <td className="num">{s.avgFinalScore || '—'}</td>
+                          <td className="num">{fmtPct(s.inspectionFailureRate)}</td>
+                          <td className="num">{s.strongOpportunities}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {data.validation.falseRejectCandidates.length > 0 && (
+              <div>
+                <div className="section-head" style={{ marginBottom: 'var(--space-2)' }}>
+                  <h3 className="section-title" style={{ fontSize: 'var(--text-xs)' }}>
+                    Suspicious leads · {data.validation.falseRejectCandidates.length} flagged for sanity check
+                  </h3>
+                </div>
+                <div className="panel">
+                  <table className="runs-table">
+                    <thead>
+                      <tr>
+                        <th>Company</th>
+                        <th>Campaign</th>
+                        <th>Score</th>
+                        <th>Why flagged</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.validation.falseRejectCandidates.slice(0, 20).map((c) => (
+                        <tr key={c.companyId}>
+                          <td>{c.company}</td>
+                          <td>
+                            <span className={`campaign-tag campaign-${c.primaryCampaign}`}>
+                              {CAMPAIGN_LABEL[c.primaryCampaign]}
+                            </span>
+                          </td>
+                          <td className="num">{c.finalScore}</td>
+                          <td>{c.flagReason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </details>
       </section>
 
       {/* ============ Review queue ============ */}
@@ -697,6 +631,13 @@ export default async function DashboardPage() {
                                     </>
                                   )}
                                 </div>
+                                <div className="detail-group" style={{ gridColumn: '1 / -1' }}>
+                                  <LeadReviewActions
+                                    companyId={row.companyId}
+                                    primaryCampaign={row.primaryCampaign}
+                                    currentReview={data.validation.reviewByCompany[row.companyId] ?? null}
+                                  />
+                                </div>
                               </div>
                             </details>
                           </div>
@@ -707,11 +648,6 @@ export default async function DashboardPage() {
                       </td>
                       <td className="col-actions">
                         <ReviewActions companyId={row.companyId} status={row.status} />
-                        <LeadReviewActions
-                          companyId={row.companyId}
-                          primaryCampaign={row.primaryCampaign}
-                          currentReview={data.validation.reviewByCompany[row.companyId] ?? null}
-                        />
                       </td>
                     </tr>
                   );
