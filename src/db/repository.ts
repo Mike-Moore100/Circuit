@@ -154,13 +154,305 @@ export function upsertContactFromLead(
   return contact;
 }
 
+// The extended contact row carries the Phase-8 discovery fields alongside
+// the legacy columns. Older rows (from before discovery existed) will have
+// NULLs in the new columns — callers should default-safely.
+export interface ContactRow extends Contact {
+  contact_type: string | null;
+  source: string | null;
+  source_url: string | null;
+  email_type: string | null;
+  email_status: string | null;
+  role_confidence: number | null;
+  email_confidence: number | null;
+  overall_confidence: number | null;
+  is_primary: number | null;
+  discovered_at: string | null;
+}
+
 export function getContactsForCompany(
   companyId: string,
   db: Database = getDb(),
-): Contact[] {
+): ContactRow[] {
   return db
-    .prepare('SELECT * FROM contacts WHERE company_id = ? ORDER BY confidence DESC')
-    .all(companyId) as Contact[];
+    .prepare(
+      `SELECT * FROM contacts WHERE company_id = ?
+        ORDER BY COALESCE(overall_confidence, confidence) DESC`,
+    )
+    .all(companyId) as ContactRow[];
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8 — Contact discovery
+// ---------------------------------------------------------------------------
+export interface DiscoveredContactInput {
+  name: string | null;
+  role: string | null;
+  email: string | null;
+  emailType: string | null;
+  emailStatus: string | null;
+  linkedinUrl: string | null;
+  sourceUrl: string | null;
+  source: string;
+  roleConfidence: number;
+  emailConfidence: number;
+  overallConfidence: number;
+  isPrimary: boolean;
+  contactType: string | null;
+}
+
+function findExistingContact(
+  companyId: string,
+  input: DiscoveredContactInput,
+  db: Database,
+): ContactRow | undefined {
+  // De-dupe by (email) if email is set; otherwise by (lowercased name).
+  if (input.email) {
+    return db
+      .prepare('SELECT * FROM contacts WHERE company_id = ? AND email = ?')
+      .get(companyId, input.email) as ContactRow | undefined;
+  }
+  if (input.name) {
+    return db
+      .prepare(
+        'SELECT * FROM contacts WHERE company_id = ? AND lower(name) = lower(?)',
+      )
+      .get(companyId, input.name) as ContactRow | undefined;
+  }
+  return undefined;
+}
+
+export function insertOrUpdateContact(
+  companyId: string,
+  input: {
+    name: string | null;
+    role: string | null;
+    email: string | null;
+    emailType: string | null;
+    emailStatus: string | null;
+    linkedinUrl: string | null;
+    sourceUrl: string;
+    roleConfidence: number;
+    emailConfidence: number;
+    overallConfidence: number;
+    isPrimary: boolean;
+  },
+  db: Database = getDb(),
+): ContactRow {
+  const existing = findExistingContact(companyId, { ...input, source: 'website', contactType: null } as DiscoveredContactInput, db);
+  if (existing) {
+    db.prepare(
+      `UPDATE contacts SET
+         name               = COALESCE(?, name),
+         role               = COALESCE(?, role),
+         email              = COALESCE(?, email),
+         linkedin_url       = COALESCE(?, linkedin_url),
+         source             = COALESCE(?, source),
+         source_url         = COALESCE(?, source_url),
+         email_type         = COALESCE(?, email_type),
+         email_status       = COALESCE(?, email_status),
+         role_confidence    = ?,
+         email_confidence   = ?,
+         overall_confidence = ?,
+         is_primary         = ?,
+         confidence         = ?,
+         discovered_at      = ?
+       WHERE id = ?`,
+    ).run(
+      input.name,
+      input.role,
+      input.email,
+      input.linkedinUrl,
+      'website',
+      input.sourceUrl,
+      input.emailType,
+      input.emailStatus,
+      input.roleConfidence,
+      input.emailConfidence,
+      input.overallConfidence,
+      input.isPrimary ? 1 : 0,
+      input.overallConfidence,
+      now(),
+      existing.id,
+    );
+    return { ...existing,
+      name: input.name ?? existing.name,
+      role: input.role ?? existing.role,
+      email: input.email ?? existing.email,
+      linkedin_url: input.linkedinUrl ?? existing.linkedin_url,
+      source: 'website',
+      source_url: input.sourceUrl,
+      email_type: input.emailType,
+      email_status: input.emailStatus,
+      role_confidence: input.roleConfidence,
+      email_confidence: input.emailConfidence,
+      overall_confidence: input.overallConfidence,
+      is_primary: input.isPrimary ? 1 : 0,
+      confidence: input.overallConfidence,
+      discovered_at: now(),
+    };
+  }
+  const row: ContactRow = {
+    id: randomUUID(),
+    company_id: companyId,
+    name: input.name,
+    role: input.role,
+    email: input.email,
+    linkedin_url: input.linkedinUrl,
+    confidence: input.overallConfidence,
+    created_at: now(),
+    contact_type: null,
+    source: 'website',
+    source_url: input.sourceUrl,
+    email_type: input.emailType,
+    email_status: input.emailStatus,
+    role_confidence: input.roleConfidence,
+    email_confidence: input.emailConfidence,
+    overall_confidence: input.overallConfidence,
+    is_primary: input.isPrimary ? 1 : 0,
+    discovered_at: now(),
+  };
+  db.prepare(
+    `INSERT INTO contacts
+       (id, company_id, name, role, email, linkedin_url, confidence,
+        created_at, contact_type, source, source_url, email_type, email_status,
+        role_confidence, email_confidence, overall_confidence, is_primary,
+        discovered_at)
+     VALUES
+       (@id, @company_id, @name, @role, @email, @linkedin_url, @confidence,
+        @created_at, @contact_type, @source, @source_url, @email_type, @email_status,
+        @role_confidence, @email_confidence, @overall_confidence, @is_primary,
+        @discovered_at)`,
+  ).run(row);
+  return row;
+}
+
+export interface ContactRouteRow {
+  id: string;
+  company_id: string;
+  route_type: string;
+  value: string;
+  source_url: string | null;
+  confidence: number;
+  created_at: string;
+}
+
+export function insertContactRoute(
+  companyId: string,
+  input: {
+    type: string;
+    value: string;
+    sourceUrl: string;
+    confidence: number;
+  },
+  db: Database = getDb(),
+): void {
+  // Dedupe by (company_id, route_type, value) — re-runs don't double-up.
+  const existing = db
+    .prepare(
+      'SELECT id FROM contact_routes WHERE company_id = ? AND route_type = ? AND value = ?',
+    )
+    .get(companyId, input.type, input.value) as { id: string } | undefined;
+  if (existing) {
+    db.prepare(
+      'UPDATE contact_routes SET confidence = ?, source_url = ? WHERE id = ?',
+    ).run(input.confidence, input.sourceUrl, existing.id);
+    return;
+  }
+  db.prepare(
+    `INSERT INTO contact_routes (id, company_id, route_type, value, source_url, confidence, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    randomUUID(),
+    companyId,
+    input.type,
+    input.value,
+    input.sourceUrl,
+    input.confidence,
+    now(),
+  );
+}
+
+export function getContactRoutesForCompany(
+  companyId: string,
+  db: Database = getDb(),
+): ContactRouteRow[] {
+  return db
+    .prepare(
+      'SELECT * FROM contact_routes WHERE company_id = ? ORDER BY confidence DESC',
+    )
+    .all(companyId) as ContactRouteRow[];
+}
+
+export function getContactStats(db: Database = getDb()): {
+  total: number;
+  withDirectEmail: number;
+  withGuessedEmail: number;
+  withNamedDm: number;
+  withForm: number;
+  withPhone: number;
+  withBooking: number;
+  noContact: number;
+} {
+  const companies = db
+    .prepare('SELECT id FROM companies WHERE status NOT IN (?, ?)')
+    .all('rejected', 'archived') as Array<{ id: string }>;
+  const contacts = db
+    .prepare('SELECT company_id, name, email, email_status FROM contacts')
+    .all() as Array<{
+    company_id: string;
+    name: string | null;
+    email: string | null;
+    email_status: string | null;
+  }>;
+  const routes = db
+    .prepare('SELECT company_id, route_type FROM contact_routes')
+    .all() as Array<{ company_id: string; route_type: string }>;
+
+  const contactByCompany = new Map<string, typeof contacts>();
+  for (const c of contacts) {
+    if (!contactByCompany.has(c.company_id)) contactByCompany.set(c.company_id, []);
+    contactByCompany.get(c.company_id)!.push(c);
+  }
+  const routeByCompany = new Map<string, Set<string>>();
+  for (const r of routes) {
+    if (!routeByCompany.has(r.company_id)) routeByCompany.set(r.company_id, new Set());
+    routeByCompany.get(r.company_id)!.add(r.route_type);
+  }
+
+  let withDirectEmail = 0;
+  let withGuessedEmail = 0;
+  let withNamedDm = 0;
+  let withForm = 0;
+  let withPhone = 0;
+  let withBooking = 0;
+  let noContact = 0;
+
+  for (const co of companies) {
+    const cs = contactByCompany.get(co.id) ?? [];
+    const rs = routeByCompany.get(co.id) ?? new Set();
+    const hasDirect = cs.some((c) => c.email && c.email_status === 'extracted');
+    const hasGuess = cs.some((c) => c.email && c.email_status === 'guessed');
+    const hasName = cs.some((c) => c.name);
+    if (hasDirect) withDirectEmail += 1;
+    if (hasGuess) withGuessedEmail += 1;
+    if (hasName) withNamedDm += 1;
+    if (rs.has('CONTACT_FORM')) withForm += 1;
+    if (rs.has('PHONE')) withPhone += 1;
+    if (rs.has('BOOKING_LINK')) withBooking += 1;
+    if (cs.length === 0 && rs.size === 0) noContact += 1;
+  }
+
+  return {
+    total: companies.length,
+    withDirectEmail,
+    withGuessedEmail,
+    withNamedDm,
+    withForm,
+    withPhone,
+    withBooking,
+    noContact,
+  };
 }
 
 // ---------------------------------------------------------------------------

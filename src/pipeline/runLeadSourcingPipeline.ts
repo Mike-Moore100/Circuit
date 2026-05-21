@@ -31,6 +31,7 @@ import {
   type AnalyzeTopLeadsSummary,
 } from '../ai/aiAnalysisEngine';
 import { PROMPT_VERSION } from '../ai/aiTypes';
+import { discoverContactsForCompany } from '../contacts/contactDiscovery';
 
 export interface PipelineRunOptions {
   sources?: SourceConnector[];
@@ -64,6 +65,13 @@ export interface PipelineRunSummary {
     skipped: number;
   };
   ai: AnalyzeTopLeadsSummary | null;
+  contacts: {
+    attempted: number;
+    fromCache: number;
+    contactsFound: number;
+    withDirectEmail: number;
+    failed: number;
+  };
 }
 
 function emptySummary(): PipelineRunSummary {
@@ -78,6 +86,7 @@ function emptySummary(): PipelineRunSummary {
     sourceRuns: [],
     inspection: { attempted: 0, fromCache: 0, failed: 0, skipped: 0 },
     ai: null,
+    contacts: { attempted: 0, fromCache: 0, contactsFound: 0, withDirectEmail: 0, failed: 0 },
   };
 }
 
@@ -325,6 +334,50 @@ export async function runLeadSourcingPipeline(
       });
 
     summary.ai = await analyzeTopLeads(candidates, { db });
+  }
+
+  // ---- 6. Contact discovery — eligible non-REJECT actionable leads -----
+  if (config.contactDiscovery.enabled) {
+    const allowedCampaigns = new Set(config.contactDiscovery.allowedCampaigns);
+    const allowedPriorities = new Set(config.contactDiscovery.allowedPriorities);
+    const eligible = summary.rows.filter(
+      (row) =>
+        row.website &&
+        row.primaryCampaign !== 'REJECT' &&
+        allowedCampaigns.has(row.primaryCampaign) &&
+        allowedPriorities.has(row.priority as 'A' | 'B' | 'C'),
+    );
+
+    // Light concurrency — same shape as inspection.
+    const concurrency = Math.max(1, Math.min(
+      config.contactDiscovery.concurrency,
+      eligible.length || 1,
+    ));
+    let cursor = 0;
+    await Promise.all(
+      Array.from({ length: concurrency }, async () => {
+        while (true) {
+          const i = cursor++;
+          if (i >= eligible.length) return;
+          const row = eligible[i];
+          summary.contacts.attempted += 1;
+          try {
+            const result = await discoverContactsForCompany({
+              companyId: row.companyId,
+              websiteUrl: row.website,
+              db,
+            });
+            if (result.fromCache) summary.contacts.fromCache += 1;
+            summary.contacts.contactsFound += result.contacts.length;
+            summary.contacts.withDirectEmail += result.contacts.filter(
+              (c) => c.email && c.emailStatus === 'extracted',
+            ).length;
+          } catch (err) {
+            summary.contacts.failed += 1;
+          }
+        }
+      }),
+    );
   }
 
   return summary;

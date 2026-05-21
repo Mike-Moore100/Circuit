@@ -2,6 +2,8 @@ import { config } from '../../src/config/index';
 import { getDb } from '../../src/db/client';
 import {
   getAiAnalysisStats,
+  getContactRoutesForCompany,
+  getContactsForCompany,
   getInspectionStats,
   getLatestReviewByCompany,
   getRecentSourceRuns,
@@ -139,6 +141,30 @@ export interface ValidationOverview {
   reviewByCompany: Record<string, string>;
 }
 
+export interface LeadContact {
+  name: string | null;
+  role: string | null;
+  email: string | null;
+  emailType: string | null;
+  emailStatus: string | null;
+  linkedinUrl: string | null;
+  sourceUrl: string | null;
+  overallConfidence: number;
+  isPrimary: boolean;
+}
+
+export interface LeadRoute {
+  type: string;
+  value: string;
+  sourceUrl: string | null;
+  confidence: number;
+}
+
+export interface LeadContactBundle {
+  contacts: LeadContact[];
+  routes: LeadRoute[];
+}
+
 export interface DashboardData {
   totals: { processed: number; accepted: number; rejected: number };
   priorityCounts: Record<Priority, number>;
@@ -156,6 +182,32 @@ export interface DashboardData {
   aiByCompany: Record<string, AiAnalysisPanel>;
   ai: AiOverview;
   validation: ValidationOverview;
+}
+
+// Loaded per-lead (only for the selected drawer lead) to avoid bloating the
+// main dashboardData response.
+export function getContactsForLead(companyId: string): LeadContactBundle {
+  const db = getDb();
+  const contacts: LeadContact[] = getContactsForCompany(companyId, db).map((c) => ({
+    name: c.name,
+    role: c.role,
+    email: c.email,
+    emailType: c.email_type,
+    emailStatus: c.email_status,
+    linkedinUrl: c.linkedin_url,
+    sourceUrl: c.source_url,
+    overallConfidence: c.overall_confidence ?? 0,
+    isPrimary: Boolean(c.is_primary),
+  }));
+  const routes: LeadRoute[] = getContactRoutesForCompany(companyId, db).map(
+    (r) => ({
+      type: r.route_type,
+      value: r.value,
+      sourceUrl: r.source_url,
+      confidence: r.confidence,
+    }),
+  );
+  return { contacts, routes };
 }
 
 function parseReasons(raw: string | null): PersistedReasons | null {

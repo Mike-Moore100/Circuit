@@ -1,20 +1,18 @@
+import Link from 'next/link';
 import {
+  getContactsForLead,
   getDashboardData,
-  type AiAnalysisPanel,
-  type LeadVerifiedSignal,
   type SourceRunSummary,
 } from './_lib/dashboardData';
 import { ReviewActions } from './_components/ReviewActions';
-import { AiFeedback } from './_components/AiFeedback';
-import { LeadReviewActions } from './_components/LeadReviewActions';
+import { LeadDrawer } from './_components/LeadDrawer';
 import { Avatar } from './_components/Avatar';
-import { PriorityDonut } from './_components/PriorityDonut';
 import {
   CAMPAIGN_LABEL,
   CAMPAIGN_DESCRIPTION,
   type Campaign,
 } from '../src/scoring/campaignTypes';
-import type { Priority, ReviewQueueRow, ScoreReason } from '../src/types';
+import type { Priority, ReviewQueueRow } from '../src/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,12 +42,12 @@ function PriorityTag({ priority }: { priority: Priority }) {
 }
 
 function ScoreCell({ row }: { row: ReviewQueueRow }) {
-  const width = `${Math.max(0, Math.min(100, row.finalScore))}%`;
+  const finalWidth = `${Math.max(0, Math.min(100, row.finalScore))}%`;
   return (
     <div>
       <div className="score-cell">
         <div className={`score-bar ${row.priority}`}>
-          <span className="fill" style={{ width }} />
+          <span className="fill" style={{ width: finalWidth }} />
           <span className="threshold" style={{ left: '60%' }} />
           <span className="threshold" style={{ left: '85%' }} />
         </div>
@@ -60,176 +58,6 @@ function ScoreCell({ row }: { row: ReviewQueueRow }) {
       </div>
     </div>
   );
-}
-
-function ReasonsList({ items, kind }: { items: ScoreReason[]; kind: 'pos' | 'neg' }) {
-  if (items.length === 0) return <p className="note">No items.</p>;
-  return (
-    <ul className="reason-list">
-      {items.map((r) => (
-        <li key={`${kind}-${r.code}`} className={`reason ${kind}`}>
-          <span className="delta">
-            {r.delta >= 0 ? '+' : ''}
-            {r.delta}
-          </span>
-          <span className="label">{r.label}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function SignalChips({ signals }: { signals: LeadVerifiedSignal[] }) {
-  if (signals.length === 0) {
-    return <p className="note">No verified signals yet — run a fresh pipeline to inspect.</p>;
-  }
-  return (
-    <div className="signal-chips">
-      {signals.map((s) => {
-        const isPenalty =
-          s.type === 'verified.website_failed' ||
-          s.type === 'verified.has_ai_automation_language' ||
-          s.type === 'verified.low_digital_maturity';
-        const label = s.type.replace(/^verified\./, '').replace(/_/g, ' ');
-        return (
-          <span
-            key={`${s.type}-${s.value}`}
-            className={`signal-chip ${isPenalty ? 'neg' : 'pos'}`}
-            title={s.value}
-          >
-            {label}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function AiAnalysisPanelView({ panel }: { panel: AiAnalysisPanel }) {
-  const totalTokens = panel.tokensInput + panel.tokensCached + panel.tokensOutput;
-  return (
-    <div className="ai-panel">
-      <div className="ai-panel-head">
-        <div>
-          <div className="ai-panel-title">AI operational intelligence</div>
-          <div className="ai-panel-meta">
-            {panel.provider} · {panel.model} · {totalTokens} tokens · ${panel.estimatedCost.toFixed(5)}
-          </div>
-        </div>
-        <span
-          className="ai-confidence"
-          title="Overall confidence (0–100)"
-          data-conf={confidenceBand(panel.confidence)}
-        >
-          {panel.confidence}<span className="ai-confidence-suffix">/100</span>
-        </span>
-      </div>
-
-      <p className="ai-summary">{panel.summary}</p>
-
-      {panel.operationalPainPoints.length > 0 && (
-        <section className="ai-section">
-          <h4>Operational pain points</h4>
-          <ul className="ai-list">
-            {panel.operationalPainPoints.map((p) => (
-              <li key={p.title}>
-                <div className="ai-list-head">
-                  <strong>{p.title}</strong>
-                  <span className="ai-mini-conf" data-conf={confidenceBand(p.confidence)}>
-                    {p.confidence}
-                  </span>
-                </div>
-                <p>{p.description}</p>
-                {p.evidence.length > 0 && (
-                  <div className="ai-evidence">
-                    <span className="muted">Evidence:</span>{' '}
-                    {p.evidence.map((e, i) => (
-                      <span key={i} className="signal-chip pos">
-                        {e}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {panel.automationOpportunities.length > 0 && (
-        <section className="ai-section">
-          <h4>Automation opportunities</h4>
-          <ul className="ai-list">
-            {panel.automationOpportunities.map((o) => (
-              <li key={o.title}>
-                <div className="ai-list-head">
-                  <strong>{o.title}</strong>
-                  <span className={`tag complexity-${o.implementationComplexity}`}>
-                    {o.implementationComplexity} complexity
-                  </span>
-                  <span className="ai-mini-conf" data-conf={confidenceBand(o.confidence)}>
-                    {o.confidence}
-                  </span>
-                </div>
-                <p>{o.description}</p>
-                <p className="ai-impact">
-                  <span className="muted">Impact:</span> {o.businessImpact}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <div className="ai-meta-grid">
-        <div className="ai-meta-cell">
-          <span className="muted">Likely buyer</span>
-          <strong>{panel.likelyBuyer.role}</strong>
-          <span className="muted">{panel.likelyBuyer.reasoning}</span>
-        </div>
-        <div className="ai-meta-cell">
-          <span className="muted">Urgency</span>
-          <strong className={`urgency-${panel.urgency.level}`}>{panel.urgency.level}</strong>
-          <span className="muted">{panel.urgency.reasoning}</span>
-        </div>
-      </div>
-
-      {panel.proofAngles.length > 0 && (
-        <section className="ai-section">
-          <h4>Proof angles for outreach</h4>
-          <ul className="ai-list">
-            {panel.proofAngles.map((p) => (
-              <li key={p.title}>
-                <strong>{p.title}</strong>
-                <p>{p.description}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {panel.risks.length > 0 && (
-        <section className="ai-section">
-          <h4>Risks &amp; objections</h4>
-          <ul className="ai-risks">
-            {panel.risks.map((r, i) => (
-              <li key={i}>{r}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <div className="ai-footer">
-        <AiFeedback analysisId={panel.id} current={panel.feedbackStatus} />
-      </div>
-    </div>
-  );
-}
-
-function confidenceBand(c: number): 'high' | 'medium' | 'low' {
-  if (c >= 70) return 'high';
-  if (c >= 50) return 'medium';
-  return 'low';
 }
 
 function fmtPct(n: number | null): string {
@@ -281,8 +109,19 @@ function domain(url: string | null): string | null {
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ lead?: string }>;
+}) {
+  const params = await searchParams;
   const data = await getDashboardData();
+  const selectedLeadId = params.lead ?? null;
+  const selectedLead = selectedLeadId
+    ? data.reviewQueue.find((r) => r.companyId === selectedLeadId) ??
+      data.rejected.find((r) => r.companyId === selectedLeadId) ??
+      null
+    : null;
   const latestRun = data.sourceRuns[0] ?? null;
   const avg = avgFinalScore(data.reviewQueue);
   const inspectedOk = Math.max(0, data.inspection.inspected - data.inspection.failed);
@@ -545,10 +384,10 @@ export default async function DashboardPage() {
               Run <code>npm run seed</code> then <code>npm run pipeline</code>.
             </div>
           ) : (
-            <table className="lead-table">
+            <table className="lead-table compact">
               <thead>
                 <tr>
-                  <th className="col-campaign">Campaign</th>
+                  <th className="col-campaign-compact" aria-label="Campaign" />
                   <th>Company</th>
                   <th className="col-score">Score</th>
                   <th className="col-actions">Action</th>
@@ -556,92 +395,40 @@ export default async function DashboardPage() {
               </thead>
               <tbody>
                 {data.reviewQueue.map((row) => {
-                  const signals = data.verifiedSignalsByCompany[row.companyId] ?? [];
-                  const positiveReasons = row.reasons.filter((r) => r.delta >= 0);
+                  const isSelected = row.companyId === selectedLeadId;
+                  const reviewMark = data.validation.reviewByCompany[row.companyId];
                   return (
-                    <tr key={row.companyId}>
-                      <td className="col-campaign">
-                        <span className={`campaign-tag campaign-${row.primaryCampaign}`}>
-                          {CAMPAIGN_LABEL[row.primaryCampaign]}
-                        </span>
-                        <div className="campaign-reason">{row.primaryReason}</div>
+                    <tr
+                      key={row.companyId}
+                      className={isSelected ? 'lead-row selected' : 'lead-row'}
+                    >
+                      <td className="col-campaign-compact">
+                        <span
+                          className={`campaign-dot campaign-${row.primaryCampaign}`}
+                          title={CAMPAIGN_LABEL[row.primaryCampaign]}
+                        />
                       </td>
-                      <td>
-                        <div className="company-cell">
-                          <Avatar name={row.company} />
-                          <div className="company-text">
-                            <div className="lead-name">{row.company}</div>
-                            <div className="lead-sub">
-                              {row.website ? (
-                                <a href={row.website} target="_blank" rel="noreferrer">
-                                  {domain(row.website)}
-                                </a>
-                              ) : (
-                                <span>no website</span>
+                      <td className="col-company-compact">
+                        <Link
+                          href={`?lead=${row.companyId}`}
+                          scroll={false}
+                          className="company-link"
+                        >
+                          <Avatar name={row.company} size={28} />
+                          <div className="company-line">
+                            <div className="lead-name-compact">
+                              {row.company}
+                              {reviewMark && (
+                                <span className={`row-review-dot review-${reviewMark}`} title={reviewMark.replace(/_/g, ' ')} />
                               )}
-                              {row.location && <span>· {row.location}</span>}
                             </div>
-                            <div className="tag-row">
-                              {row.industry && <span className="tag">{row.industry}</span>}
-                              <span className="tag">{row.source}</span>
+                            <div className="lead-sub-compact">
+                              {domain(row.website) ?? 'no website'}
+                              {row.industry && <span> · {row.industry}</span>}
+                              {row.location && <span> · {row.location}</span>}
                             </div>
-                            {data.aiByCompany[row.companyId] && (
-                              <details className="row-details">
-                                <summary>
-                                  AI analysis ·{' '}
-                                  <span className="muted">
-                                    confidence{' '}
-                                    {data.aiByCompany[row.companyId].confidence}
-                                  </span>
-                                </summary>
-                                <AiAnalysisPanelView
-                                  panel={data.aiByCompany[row.companyId]}
-                                />
-                              </details>
-                            )}
-                            <details className="row-details">
-                              <summary>Why this score</summary>
-                              <div className="row-details-body">
-                                <div className="detail-group">
-                                  <h4>What worked</h4>
-                                  <ReasonsList items={positiveReasons} kind="pos" />
-                                </div>
-                                <div className="detail-group">
-                                  <h4>What pulled the score down</h4>
-                                  <ReasonsList items={row.rejectionReasons} kind="neg" />
-                                </div>
-                                <div className="detail-group">
-                                  <h4>Verified website signals</h4>
-                                  <SignalChips signals={signals} />
-                                </div>
-                                <div className="detail-group">
-                                  <h4>Next step</h4>
-                                  <p className="note">{row.suggestedNextStep}</p>
-                                  {row.likelyPainPoints.length > 0 && (
-                                    <>
-                                      <h4 style={{ marginTop: 12 }}>Likely pain points</h4>
-                                      <ul className="reason-list">
-                                        {row.likelyPainPoints.map((p, i) => (
-                                          <li key={i} className="reason pos">
-                                            <span className="delta">·</span>
-                                            <span className="label">{p}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </>
-                                  )}
-                                </div>
-                                <div className="detail-group" style={{ gridColumn: '1 / -1' }}>
-                                  <LeadReviewActions
-                                    companyId={row.companyId}
-                                    primaryCampaign={row.primaryCampaign}
-                                    currentReview={data.validation.reviewByCompany[row.companyId] ?? null}
-                                  />
-                                </div>
-                              </div>
-                            </details>
                           </div>
-                        </div>
+                        </Link>
                       </td>
                       <td className="col-score">
                         <ScoreCell row={row} />
@@ -770,6 +557,16 @@ export default async function DashboardPage() {
           </details>
         )}
       </section>
+
+      {selectedLead && (
+        <LeadDrawer
+          lead={selectedLead}
+          signals={data.verifiedSignalsByCompany[selectedLead.companyId] ?? []}
+          ai={data.aiByCompany[selectedLead.companyId]}
+          currentReview={data.validation.reviewByCompany[selectedLead.companyId] ?? null}
+          contacts={getContactsForLead(selectedLead.companyId)}
+        />
+      )}
     </>
   );
 }

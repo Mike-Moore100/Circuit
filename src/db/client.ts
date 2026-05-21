@@ -36,6 +36,18 @@ function runMigrations(db: Db): void {
   addColumnIfMissing(db, 'lead_scores', 'campaign_reasons_json', 'TEXT');
   addColumnIfMissing(db, 'lead_scores', 'primary_reason', 'TEXT');
   addColumnIfMissing(db, 'lead_scores', 'suggested_investigation', 'TEXT');
+
+  // Phase 8 — contact discovery
+  addColumnIfMissing(db, 'contacts', 'contact_type', 'TEXT');
+  addColumnIfMissing(db, 'contacts', 'source', 'TEXT');
+  addColumnIfMissing(db, 'contacts', 'source_url', 'TEXT');
+  addColumnIfMissing(db, 'contacts', 'email_type', 'TEXT');
+  addColumnIfMissing(db, 'contacts', 'email_status', 'TEXT');
+  addColumnIfMissing(db, 'contacts', 'role_confidence', 'REAL');
+  addColumnIfMissing(db, 'contacts', 'email_confidence', 'REAL');
+  addColumnIfMissing(db, 'contacts', 'overall_confidence', 'REAL');
+  addColumnIfMissing(db, 'contacts', 'is_primary', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(db, 'contacts', 'discovered_at', 'TEXT');
 }
 
 export function getDb(): Db {

@@ -47,6 +47,25 @@ export const config = {
     requestTimeoutMs: envInt('AI_ANALYSIS_REQUEST_TIMEOUT_MS', 30000),
   },
 
+  contactDiscovery: {
+    enabled: (process.env.CONTACT_DISCOVERY_ENABLED ?? '1') !== '0',
+    maxPagesPerSite: envInt('CONTACT_DISCOVERY_MAX_PAGES_PER_SITE', 4),
+    timeoutMs: envInt('CONTACT_DISCOVERY_TIMEOUT_MS', 10000),
+    concurrency: envInt('CONTACT_DISCOVERY_CONCURRENCY', 4),
+    userAgent:
+      process.env.CONTACT_DISCOVERY_USER_AGENT ??
+      'CircuitContacts/0.1 (+lead-research bot; non-commercial; respect robots)',
+    // Allowed campaigns. Default narrows to non-REJECT.
+    allowedCampaigns: (process.env.CONTACT_DISCOVERY_ALLOWED_CAMPAIGNS ?? 'AI_AUTOMATION,WEB_REBUILD,FUNNEL_OPTIMIZATION,LOCAL_DIGITAL_UPGRADE')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    allowedPriorities: (process.env.CONTACT_DISCOVERY_ALLOWED_PRIORITIES ?? 'A,B')
+      .split(',')
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean) as Array<'A' | 'B' | 'C'>,
+  },
+
   websiteInspection: {
     enabled: (process.env.WEBSITE_INSPECTION_ENABLED ?? '1') !== '0',
     timeoutMs: envInt('WEBSITE_INSPECTION_TIMEOUT_MS', 10000),

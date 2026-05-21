@@ -177,4 +177,19 @@ CREATE TABLE IF NOT EXISTS review_metrics (
 
 CREATE INDEX IF NOT EXISTS review_metrics_type_idx       ON review_metrics(metric_type);
 CREATE INDEX IF NOT EXISTS review_metrics_created_at_idx ON review_metrics(created_at DESC);
+
+-- Phase 8: contact discovery — extra columns on contacts added via idempotent
+-- ALTERs in client.ts. New contact_routes table for non-email reach paths.
+CREATE TABLE IF NOT EXISTS contact_routes (
+  id          TEXT PRIMARY KEY,
+  company_id  TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  route_type  TEXT NOT NULL,
+  value       TEXT NOT NULL,
+  source_url  TEXT,
+  confidence  REAL NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS contact_routes_company_idx ON contact_routes(company_id);
+CREATE INDEX IF NOT EXISTS contact_routes_type_idx    ON contact_routes(route_type);
 `;
