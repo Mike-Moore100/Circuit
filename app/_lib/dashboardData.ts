@@ -1,5 +1,6 @@
 import { getDb } from '../../src/db/client';
 import {
+  getAiAnalysisStats,
   getInspectionStats,
   getRecentSourceRuns,
 } from '../../src/db/repository';
@@ -64,6 +65,47 @@ export interface SourceRunSummary {
   errors: string[];
 }
 
+export interface AiAnalysisPanel {
+  id: string;
+  summary: string;
+  confidence: number;
+  operationalPainPoints: Array<{
+    title: string;
+    description: string;
+    confidence: number;
+    evidence: string[];
+  }>;
+  automationOpportunities: Array<{
+    title: string;
+    description: string;
+    businessImpact: string;
+    implementationComplexity: 'low' | 'medium' | 'high';
+    confidence: number;
+  }>;
+  likelyBuyer: { role: string; reasoning: string; confidence: number };
+  urgency: { level: 'low' | 'medium' | 'high'; reasoning: string };
+  proofAngles: Array<{ title: string; description: string }>;
+  risks: string[];
+  provider: string;
+  model: string;
+  tokensInput: number;
+  tokensCached: number;
+  tokensOutput: number;
+  estimatedCost: number;
+  feedbackStatus: string;
+  createdAt: string;
+}
+
+export interface AiOverview {
+  total: number;
+  ok: number;
+  failed: number;
+  todayCostUsd: number;
+  totalCostUsd: number;
+  dailyLimitUsd: number;
+  feedback: Record<string, number>;
+}
+
 export interface DashboardData {
   totals: { processed: number; accepted: number; rejected: number };
   priorityCounts: Record<Priority, number>;
@@ -73,6 +115,9 @@ export interface DashboardData {
   inspection: InspectionCounts;
   // companyId → array of verified signals for that company.
   verifiedSignalsByCompany: Record<string, LeadVerifiedSignal[]>;
+  // companyId → latest AI analysis (if any)
+  aiByCompany: Record<string, AiAnalysisPanel>;
+  ai: AiOverview;
 }
 
 function parseReasons(raw: string | null): PersistedReasons | null {
@@ -248,6 +293,95 @@ export async function getDashboardData(): Promise<DashboardData> {
     ),
   };
 
+  // ---- AI analyses: latest row per company --------------------------------
+  const aiRows = db
+    .prepare(
+      `SELECT a.*
+         FROM ai_analyses a
+        WHERE a.id IN (
+          SELECT id FROM ai_analyses a2
+           WHERE a2.company_id = a.company_id
+           ORDER BY a2.created_at DESC LIMIT 1
+        )
+        ORDER BY a.created_at DESC`,
+    )
+    .all() as Array<{
+    id: string;
+    company_id: string;
+    summary: string | null;
+    confidence: number | null;
+    operational_pain_points_json: string | null;
+    automation_opportunities_json: string | null;
+    likely_buyer_json: string | null;
+    urgency_json: string | null;
+    proof_angles_json: string | null;
+    risks_json: string | null;
+    ai_provider: string;
+    model: string;
+    tokens_input: number;
+    tokens_cached: number;
+    tokens_output: number;
+    estimated_cost: number;
+    feedback_status: string;
+    status: string;
+    created_at: string;
+  }>;
+
+  const aiByCompany: Record<string, AiAnalysisPanel> = {};
+  for (const r of aiRows) {
+    if (r.status !== 'ok' || !r.summary) continue;
+    try {
+      aiByCompany[r.company_id] = {
+        id: r.id,
+        summary: r.summary,
+        confidence: r.confidence ?? 0,
+        operationalPainPoints: r.operational_pain_points_json
+          ? JSON.parse(r.operational_pain_points_json)
+          : [],
+        automationOpportunities: r.automation_opportunities_json
+          ? JSON.parse(r.automation_opportunities_json)
+          : [],
+        likelyBuyer: r.likely_buyer_json
+          ? JSON.parse(r.likely_buyer_json)
+          : { role: '', reasoning: '', confidence: 0 },
+        urgency: r.urgency_json
+          ? JSON.parse(r.urgency_json)
+          : { level: 'low', reasoning: '' },
+        proofAngles: r.proof_angles_json ? JSON.parse(r.proof_angles_json) : [],
+        risks: r.risks_json ? JSON.parse(r.risks_json) : [],
+        provider: r.ai_provider,
+        model: r.model,
+        tokensInput: r.tokens_input,
+        tokensCached: r.tokens_cached,
+        tokensOutput: r.tokens_output,
+        estimatedCost: r.estimated_cost,
+        feedbackStatus: r.feedback_status,
+        createdAt: r.created_at,
+      };
+    } catch {
+      // skip malformed rows
+    }
+  }
+
+  const aiStats = getAiAnalysisStats(db);
+  const aiOverview: AiOverview = {
+    total: aiStats.total,
+    ok: aiStats.ok,
+    failed: aiStats.failed,
+    todayCostUsd: aiStats.todayCostUsd,
+    totalCostUsd: aiStats.totalCostUsd,
+    dailyLimitUsd: 0, // server-side caller fills this from config below
+    feedback: aiStats.feedback,
+  };
+  // Pull the cost cap from config without an extra import dance: we read it
+  // via the same db client + a side import to avoid making this file async.
+  try {
+    const { config } = await import('../../src/config/index');
+    aiOverview.dailyLimitUsd = config.aiAnalysis.dailyCostLimitUsd;
+  } catch {
+    aiOverview.dailyLimitUsd = 5;
+  }
+
   return {
     totals: {
       processed: all.length,
@@ -260,5 +394,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     sourceRuns,
     inspection,
     verifiedSignalsByCompany,
+    aiByCompany,
+    ai: aiOverview,
   };
 }

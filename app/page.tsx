@@ -1,9 +1,11 @@
 import {
   getDashboardData,
+  type AiAnalysisPanel,
   type LeadVerifiedSignal,
   type SourceRunSummary,
 } from './_lib/dashboardData';
 import { ReviewActions } from './_components/ReviewActions';
+import { AiFeedback } from './_components/AiFeedback';
 import { Avatar } from './_components/Avatar';
 import { PriorityDonut } from './_components/PriorityDonut';
 import type { Priority, ReviewQueueRow, ScoreReason } from '../src/types';
@@ -95,6 +97,133 @@ function SignalChips({ signals }: { signals: LeadVerifiedSignal[] }) {
       })}
     </div>
   );
+}
+
+function AiAnalysisPanelView({ panel }: { panel: AiAnalysisPanel }) {
+  const totalTokens = panel.tokensInput + panel.tokensCached + panel.tokensOutput;
+  return (
+    <div className="ai-panel">
+      <div className="ai-panel-head">
+        <div>
+          <div className="ai-panel-title">AI operational intelligence</div>
+          <div className="ai-panel-meta">
+            {panel.provider} · {panel.model} · {totalTokens} tokens · ${panel.estimatedCost.toFixed(5)}
+          </div>
+        </div>
+        <span
+          className="ai-confidence"
+          title="Overall confidence (0–100)"
+          data-conf={confidenceBand(panel.confidence)}
+        >
+          {panel.confidence}<span className="ai-confidence-suffix">/100</span>
+        </span>
+      </div>
+
+      <p className="ai-summary">{panel.summary}</p>
+
+      {panel.operationalPainPoints.length > 0 && (
+        <section className="ai-section">
+          <h4>Operational pain points</h4>
+          <ul className="ai-list">
+            {panel.operationalPainPoints.map((p) => (
+              <li key={p.title}>
+                <div className="ai-list-head">
+                  <strong>{p.title}</strong>
+                  <span className="ai-mini-conf" data-conf={confidenceBand(p.confidence)}>
+                    {p.confidence}
+                  </span>
+                </div>
+                <p>{p.description}</p>
+                {p.evidence.length > 0 && (
+                  <div className="ai-evidence">
+                    <span className="muted">Evidence:</span>{' '}
+                    {p.evidence.map((e, i) => (
+                      <span key={i} className="signal-chip pos">
+                        {e}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {panel.automationOpportunities.length > 0 && (
+        <section className="ai-section">
+          <h4>Automation opportunities</h4>
+          <ul className="ai-list">
+            {panel.automationOpportunities.map((o) => (
+              <li key={o.title}>
+                <div className="ai-list-head">
+                  <strong>{o.title}</strong>
+                  <span className={`tag complexity-${o.implementationComplexity}`}>
+                    {o.implementationComplexity} complexity
+                  </span>
+                  <span className="ai-mini-conf" data-conf={confidenceBand(o.confidence)}>
+                    {o.confidence}
+                  </span>
+                </div>
+                <p>{o.description}</p>
+                <p className="ai-impact">
+                  <span className="muted">Impact:</span> {o.businessImpact}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="ai-meta-grid">
+        <div className="ai-meta-cell">
+          <span className="muted">Likely buyer</span>
+          <strong>{panel.likelyBuyer.role}</strong>
+          <span className="muted">{panel.likelyBuyer.reasoning}</span>
+        </div>
+        <div className="ai-meta-cell">
+          <span className="muted">Urgency</span>
+          <strong className={`urgency-${panel.urgency.level}`}>{panel.urgency.level}</strong>
+          <span className="muted">{panel.urgency.reasoning}</span>
+        </div>
+      </div>
+
+      {panel.proofAngles.length > 0 && (
+        <section className="ai-section">
+          <h4>Proof angles for outreach</h4>
+          <ul className="ai-list">
+            {panel.proofAngles.map((p) => (
+              <li key={p.title}>
+                <strong>{p.title}</strong>
+                <p>{p.description}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {panel.risks.length > 0 && (
+        <section className="ai-section">
+          <h4>Risks &amp; objections</h4>
+          <ul className="ai-risks">
+            {panel.risks.map((r, i) => (
+              <li key={i}>{r}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="ai-footer">
+        <AiFeedback analysisId={panel.id} current={panel.feedbackStatus} />
+      </div>
+    </div>
+  );
+}
+
+function confidenceBand(c: number): 'high' | 'medium' | 'low' {
+  if (c >= 70) return 'high';
+  if (c >= 50) return 'medium';
+  return 'low';
 }
 
 function fmtDuration(ms: number | null): string {
@@ -209,6 +338,44 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      {/* ============ AI overview ============ */}
+      {data.ai.total > 0 && (
+        <section className="section">
+          <div className="section-head">
+            <h2 className="section-title">AI analysis</h2>
+            <span className="section-meta">
+              Daily limit ${data.ai.dailyLimitUsd.toFixed(2)} · selective enrichment on top
+              priority leads only
+            </span>
+          </div>
+          <div className="stats-grid">
+            <div className="stat">
+              <span className="stat-label">Analyses</span>
+              <span className="stat-value">{data.ai.ok}</span>
+              <span className="stat-foot">
+                {data.ai.failed} failed · {data.ai.total} total
+              </span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Spent today</span>
+              <span className="stat-value">${data.ai.todayCostUsd.toFixed(3)}</span>
+              <span className="stat-foot">
+                of ${data.ai.dailyLimitUsd.toFixed(2)} daily cap
+              </span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Feedback</span>
+              <span className="stat-value">{data.ai.feedback.approved ?? 0}</span>
+              <span className="stat-foot">
+                approved · {data.ai.feedback.hallucination ?? 0} flagged ·{' '}
+                {data.ai.feedback.pending ?? data.ai.total - (data.ai.feedback.approved ?? 0)}{' '}
+                pending
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ============ Secondary stats ============ */}
       <section className="section">
         <div className="stats-grid">
@@ -311,6 +478,20 @@ export default async function DashboardPage() {
                               {row.industry && <span className="tag">{row.industry}</span>}
                               <span className="tag">{row.source}</span>
                             </div>
+                            {data.aiByCompany[row.companyId] && (
+                              <details className="row-details">
+                                <summary>
+                                  AI analysis ·{' '}
+                                  <span className="muted">
+                                    confidence{' '}
+                                    {data.aiByCompany[row.companyId].confidence}
+                                  </span>
+                                </summary>
+                                <AiAnalysisPanelView
+                                  panel={data.aiByCompany[row.companyId]}
+                                />
+                              </details>
+                            )}
                             <details className="row-details">
                               <summary>Why this score</summary>
                               <div className="row-details-body">

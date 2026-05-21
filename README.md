@@ -7,6 +7,8 @@ automation agency.
 - **Phase 2** — Google Maps / Places source, per-source run tracking, review actions.
 - **Phase 3** — Verified website signals: lightweight site inspection between dedupe and
   scoring, with explainable score deltas and dashboard visibility.
+- **Phase 5** — Selective AI opportunity analysis: cache-first, budget-capped, evidence-
+  grounded operational analysis on top-priority leads only.
 
 ## Setup
 
@@ -42,10 +44,17 @@ npm run debug:score -- "Lumen & Co Marketing"
 # 6. Per-lead signal breakdown (raw source + verified inspection).
 npm run debug:signals -- "Lumen & Co Marketing"
 
-# 7. All tests.
+# 7. Selective AI enrichment on top-priority leads. Mock provider used if no API key.
+npm run analyze:top-leads
+npm run analyze:top-leads -- --limit 3 --force
+
+# 8. Per-company AI breakdown.
+npm run debug:ai -- "Lumen & Co Marketing"
+
+# 9. All tests.
 npm test
 
-# 8. Internal monitoring dashboard.
+# 10. Internal monitoring dashboard.
 npm run dev   # → http://localhost:3000
 ```
 
@@ -65,6 +74,22 @@ npm run dev   # → http://localhost:3000
 | Review export | `src/review/{reviewQueue,exportReviewQueue}.ts` | `data/outputs/review-queue.{json,csv}` |
 | Debug tools | `src/debug/*`, `scripts/debugScore.ts` | Explainable per-lead breakdown |
 | Dashboard | `app/page.tsx` | Minimal operator view |
+
+### Phase 5 — Selective AI opportunity analysis (`tests/aiPrompt.test.ts` + `tests/aiAnalysis.test.ts`, 27 cases)
+
+| Area | File(s) | Notes |
+|---|---|---|
+| Types | `src/ai/aiTypes.ts` | Zod schema for `AiAnalysisResult` + prompt input shape, prompt version constant |
+| Prompt | `src/ai/buildAnalysisPrompt.ts` | Long, stable, anti-hype system prompt (marked cacheable); compact structured user prompt under `AI_ANALYSIS_MAX_INPUT_CHARS` |
+| Parser | `src/ai/parseAnalysisResponse.ts` | JSON extraction (bare / fenced / wrapped) + Zod validation; fails closed |
+| Cache | `src/ai/aiCache.ts`, `src/db/schema.ts` | `ai_analyses` table, UNIQUE`(company_id, input_hash)`, SHA-256 hash of stable serialised input |
+| Budget | `src/ai/aiBudget.ts` | Daily spend = SUM(estimated_cost) where created_at is today; conservative pre-call check refuses if remaining < estimated cost |
+| Provider | `src/ai/providers/*.ts` | `AiProvider` interface; Anthropic (with prompt-cached system block); deterministic Mock; per-model pricing table |
+| Engine | `src/ai/aiAnalysisEngine.ts` | budget → cache → provider → parse → persist; fail-safe on any step |
+| Pipeline | `src/pipeline/runLeadSourcingPipeline.ts` | After scoring, builds candidates from priority A/B/C rows, calls engine selectively |
+| CLI | `scripts/{analyzeTopLeads,debugAi}.ts` | One-shot batch runner + per-company breakdown showing tokens, cost, cache hit, confidence, evidence |
+| Dashboard | `app/page.tsx`, `app/_components/AiFeedback.tsx`, `app/_lib/dashboardData.ts` | AI overview cards (cost today, feedback split) + per-lead AI panel with pain points, opportunities, proof angles, evidence, feedback buttons |
+| Feedback API | `app/api/ai-feedback/route.ts` | Zod-validated POST; sets `feedback_status` to `useful` / `not_useful` / `hallucination` / `approved` / `rejected` |
 
 ### Phase 3 — Verified website signals (`tests/websiteSignals.test.ts` + `tests/inspectionScoring.test.ts`, 14 cases)
 
@@ -141,6 +166,43 @@ without spending any quota.
 
 Override per-run by passing `{ categories, locations }` to `googleMapsSource.fetchLeads`.
 
+## Configuring AI analysis (Phase 5)
+
+```ini
+AI_ANALYSIS_ENABLED=1
+AI_ANALYSIS_PROVIDER=anthropic
+AI_ANALYSIS_MODEL=claude-haiku-4-5-20251001     # cheapest tier; sufficient for grounded analysis
+AI_ANALYSIS_MAX_LEADS_PER_RUN=10                # hard cap per pipeline / CLI invocation
+AI_ANALYSIS_ALLOWED_PRIORITIES=A                # or A,B
+AI_ANALYSIS_DAILY_COST_LIMIT_USD=5              # refuses new calls past this
+AI_ANALYSIS_MAX_INPUT_CHARS=12000               # prompt input cap
+AI_ANALYSIS_MAX_OUTPUT_TOKENS=1500
+AI_ANALYSIS_REQUEST_TIMEOUT_MS=30000
+ANTHROPIC_API_KEY=sk-ant-...                    # leave blank to fall back to mock
+AI_ANALYSIS_FORCE_MOCK=0                        # set 1 to force mock with a key present
+```
+
+### How AI budget enforcement works
+- Before every call: `SUM(estimated_cost) WHERE date(created_at) = today` is compared against `AI_ANALYSIS_DAILY_COST_LIMIT_USD`. If `spent + conservative_estimate > limit`, the engine returns `skipped_budget` for that lead and the batch stops early.
+- The conservative estimate uses the configured model's *fresh* per-token price (not cached) plus the full `max_output_tokens`, so we never start a call we cannot afford in the worst case.
+- Per-lead cap (`AI_ANALYSIS_MAX_LEADS_PER_RUN`) and priority allow-list (`AI_ANALYSIS_ALLOWED_PRIORITIES`) act before cost — rejected and below-priority leads are never sent to the provider at all.
+
+### How caching works
+- Every input is hashed (`SHA-256` of `{promptVersion, company, sortedReasons, sortedSignals, snippet, contact}`).
+- The `ai_analyses` table has `UNIQUE(company_id, input_hash)` — re-running the same lead with no new evidence returns `cache_hit` with the prior analysis and **zero** new cost.
+- Bumping `PROMPT_VERSION` in `src/ai/aiTypes.ts` invalidates the entire cache.
+- The Anthropic provider marks the (long, stable) system prompt as `cache_control: {type: 'ephemeral'}` — once the prefix is warm, subsequent live calls pay ~0.1× input price for the system bytes (verified via `usage.cache_read_input_tokens`).
+
+### Cost profile
+On `claude-haiku-4-5` ($1/$5 per Mtok in/out, ~0.1× cached):
+- One full live call: ~3K input + ~1K output ≈ **$0.008–$0.010**.
+- After the system prompt caches: ~$0.003–$0.005.
+- A full pipeline at default caps (10 priority-A leads, mostly cached system prompt): **≤ $0.05 / run**.
+- Daily ceiling at $5 = ~500 fresh analyses worst case, or thousands in steady state with cache + dedup.
+
+### What changed in scoring
+Nothing. Phase 5 sits *after* scoring — it does not alter scores, weights, or priority bucketing. It reads the same `reasons`/`rejectionReasons`/`verifiedSignals` that informed the score and produces a parallel layer of operational interpretation that the operator reads (or ignores) on the dashboard.
+
 ## Configuring website inspection (Phase 3)
 
 ```ini
@@ -200,6 +262,7 @@ the dashboard and `npm run debug:score` keep their full explanation.
 companies ──< contacts
           ├──< signals          (raw source signals + verified.* signals)
           ├──< lead_scores
+          ├──< ai_analyses      (latest + history, UNIQUE by company + input hash)
           ├──── review_queue (1-to-1)
           └──── website_inspections (1-to-1, cached by domain)
 
@@ -220,8 +283,11 @@ Everything is tunable in `src/scoring/scoringConfig.ts`.
 ## What is intentionally NOT built yet
 
 - Outreach (email / LinkedIn / DMs), email sending, inbox management.
-- LLM enrichment / AI scoring of leads — Phase 3 keeps everything to cheap HTML scraping
-  and rule-weighted heuristics. No language model is called on any lead.
+- AI-generated outreach copy. Phase 5 produces operational analysis only — never
+  copy intended to be sent to a buyer.
+- Autonomous AI agents / agent frameworks. The AI layer is one-shot, single-prompt,
+  single-response. No tool use, no recursive loops, no agentic crawling.
+- AI scoring on every lead. Only priority A (optionally B) leads are sent to the model.
 - LinkedIn scraping.
 - Other live source connectors (job boards, Product Hunt) — placeholders return empty results
   with a note.
@@ -232,7 +298,25 @@ Everything is tunable in `src/scoring/scoringConfig.ts`.
 - Multi-tenant or authenticated dashboard — intended for `localhost`.
 - Background scheduler / cron — runs are operator-triggered.
 
-## Suggested Part 4 prompt
+## Suggested next phase
+
+> Phase 6 — Feedback-driven scoring tuning + nightly run.
+>
+> 1. Surface a "suggested scoring tweaks" widget on the dashboard derived from
+>    AI feedback patterns (high-confidence + approved → reasons / signals that
+>    correlate; flagged hallucinations → reasons we should de-weight). Display
+>    only — no auto-apply.
+> 2. Add a `scheduler` module: nightly cron-equivalent that runs the source
+>    pipeline, refreshes stale inspections, and re-analyses leads whose input
+>    hash changed. Emits a daily diff to `data/outputs/daily-diff.json`.
+> 3. Add an evaluation harness for AI analyses: replay a fixed set of seeded
+>    leads, compare new outputs against a frozen baseline, flag drift.
+> 4. Optional: implement `jobBoardSource` (Workable feeds) — hiring is a
+>    strong intent signal for ops/automation work.
+>
+> Still no outreach. Still no email. Still no autonomous agents.
+
+## Previous suggested phase (Phase 4)
 
 > Phase 4 — additional sources + feedback loop + nightly run.
 >

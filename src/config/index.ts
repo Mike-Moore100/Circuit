@@ -29,6 +29,24 @@ export const config = {
     forceMock: process.env.GOOGLE_MAPS_FORCE_MOCK === '1',
   },
 
+  aiAnalysis: {
+    enabled: (process.env.AI_ANALYSIS_ENABLED ?? '1') !== '0',
+    provider: (process.env.AI_ANALYSIS_PROVIDER ?? 'anthropic').toLowerCase(),
+    model: process.env.AI_ANALYSIS_MODEL ?? 'claude-haiku-4-5-20251001',
+    maxLeadsPerRun: envInt('AI_ANALYSIS_MAX_LEADS_PER_RUN', 10),
+    allowedPriorities: (process.env.AI_ANALYSIS_ALLOWED_PRIORITIES ?? 'A')
+      .split(',')
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean) as Array<'A' | 'B' | 'C'>,
+    dailyCostLimitUsd: Number(process.env.AI_ANALYSIS_DAILY_COST_LIMIT_USD ?? '5'),
+    maxInputChars: envInt('AI_ANALYSIS_MAX_INPUT_CHARS', 12000),
+    apiKey: process.env.ANTHROPIC_API_KEY ?? process.env.AI_PROVIDER_API_KEY ?? '',
+    // Set to 1 to force the mock provider even when an API key is present.
+    forceMock: process.env.AI_ANALYSIS_FORCE_MOCK === '1',
+    maxOutputTokens: envInt('AI_ANALYSIS_MAX_OUTPUT_TOKENS', 1500),
+    requestTimeoutMs: envInt('AI_ANALYSIS_REQUEST_TIMEOUT_MS', 30000),
+  },
+
   websiteInspection: {
     enabled: (process.env.WEBSITE_INSPECTION_ENABLED ?? '1') !== '0',
     timeoutMs: envInt('WEBSITE_INSPECTION_TIMEOUT_MS', 10000),

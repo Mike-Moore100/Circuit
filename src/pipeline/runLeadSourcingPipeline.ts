@@ -25,6 +25,12 @@ import { combineScores, evaluateIntent } from '../scoring/intentScoring';
 import { activeSources } from '../sources/index';
 import { buildReviewRow } from '../review/reviewQueue';
 import { inspectAndCache, mapWithConcurrency } from '../inspection/inspect';
+import {
+  analyzeTopLeads,
+  type AnalyzeTopLeadsCandidate,
+  type AnalyzeTopLeadsSummary,
+} from '../ai/aiAnalysisEngine';
+import { PROMPT_VERSION } from '../ai/aiTypes';
 
 export interface PipelineRunOptions {
   sources?: SourceConnector[];
@@ -57,6 +63,7 @@ export interface PipelineRunSummary {
     failed: number;
     skipped: number;
   };
+  ai: AnalyzeTopLeadsSummary | null;
 }
 
 function emptySummary(): PipelineRunSummary {
@@ -70,6 +77,7 @@ function emptySummary(): PipelineRunSummary {
     rows: [],
     sourceRuns: [],
     inspection: { attempted: 0, fromCache: 0, failed: 0, skipped: 0 },
+    ai: null,
   };
 }
 
@@ -256,5 +264,57 @@ export async function runLeadSourcingPipeline(
   }
 
   summary.rows.sort((a, b) => b.finalScore - a.finalScore);
+
+  // ---- 5. Selective AI analysis on top-priority leads only -----------
+  if (config.aiAnalysis.enabled && summary.rows.length > 0) {
+    const candidates: AnalyzeTopLeadsCandidate[] = summary.rows
+      .filter((row) => row.priority === 'A' || row.priority === 'B' || row.priority === 'C')
+      .map((row) => {
+        // Pull the persisted lead's signals back out of the row's reasons +
+        // any inspection signals already attached to this row in summary.
+        // The PromptInput is built from the data we already have at hand;
+        // verified signals come from row.reasons that have code prefix
+        // verified_ AND from the actual signals captured during inspection.
+        const verifiedFromReasons = row.reasons
+          .filter((r) => r.code.startsWith('verified_'))
+          .map((r) => ({
+            type: `verified.${r.code.replace(/^verified_/, '')}`,
+            value: r.label,
+            confidence: 80,
+          }));
+        return {
+          companyId: row.companyId,
+          priority: row.priority as 'A' | 'B' | 'C',
+          input: {
+            promptVersion: PROMPT_VERSION,
+            company: {
+              companyName: row.company,
+              industry: row.industry,
+              location: row.location,
+              websiteUrl: row.website,
+              source: row.source,
+              sizeEstimate: null,
+            },
+            scoring: {
+              finalScore: row.finalScore,
+              ruleScore: row.ruleScore,
+              intentScore: row.intentScore,
+              priority: row.priority,
+              reasons: row.reasons.map((r) => ({ label: r.label, delta: r.delta })),
+              rejectionReasons: row.rejectionReasons.map((r) => ({
+                label: r.label,
+                delta: r.delta,
+              })),
+            },
+            verifiedSignals: verifiedFromReasons,
+            homepageSnippet: null, // engine doesn't strictly need it
+            contact: null,
+          },
+        };
+      });
+
+    summary.ai = await analyzeTopLeads(candidates, { db });
+  }
+
   return summary;
 }

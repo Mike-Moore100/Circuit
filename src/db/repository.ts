@@ -519,6 +519,182 @@ export function upsertInspection(
   return record;
 }
 
+// ---------------------------------------------------------------------------
+// AI analyses (cache + persistence)
+// ---------------------------------------------------------------------------
+export interface PersistAnalysisInput {
+  id: string;
+  companyId: string;
+  promptVersion: string;
+  inputHash: string;
+  provider: string;
+  model: string;
+  summary: string | null;
+  confidence: number | null;
+  operationalPainPointsJson: string | null;
+  automationOpportunitiesJson: string | null;
+  estimatedBusinessImpactJson: string | null;
+  likelyBuyerJson: string | null;
+  urgencyJson: string | null;
+  proofAnglesJson: string | null;
+  risksJson: string | null;
+  rawResponseJson: string | null;
+  tokensInput: number;
+  tokensCached: number;
+  tokensOutput: number;
+  estimatedCost: number;
+  status: 'ok' | 'failed';
+  errorMessage: string | null;
+}
+
+export function persistAiAnalysis(
+  input: PersistAnalysisInput,
+  db: Database = getDb(),
+): void {
+  const fields = {
+    id: input.id,
+    company_id: input.companyId,
+    prompt_version: input.promptVersion,
+    input_hash: input.inputHash,
+    ai_provider: input.provider,
+    model: input.model,
+    summary: input.summary,
+    confidence: input.confidence,
+    operational_pain_points_json: input.operationalPainPointsJson,
+    automation_opportunities_json: input.automationOpportunitiesJson,
+    estimated_business_impact_json: input.estimatedBusinessImpactJson,
+    likely_buyer_json: input.likelyBuyerJson,
+    urgency_json: input.urgencyJson,
+    proof_angles_json: input.proofAnglesJson,
+    risks_json: input.risksJson,
+    raw_response_json: input.rawResponseJson,
+    tokens_input: input.tokensInput,
+    tokens_cached: input.tokensCached,
+    tokens_output: input.tokensOutput,
+    estimated_cost: input.estimatedCost,
+    status: input.status,
+    error_message: input.errorMessage,
+    created_at: now(),
+    updated_at: now(),
+  };
+  db.prepare(
+    `INSERT INTO ai_analyses
+       (id, company_id, prompt_version, input_hash, ai_provider, model,
+        summary, confidence,
+        operational_pain_points_json, automation_opportunities_json,
+        estimated_business_impact_json, likely_buyer_json, urgency_json,
+        proof_angles_json, risks_json, raw_response_json,
+        tokens_input, tokens_cached, tokens_output, estimated_cost,
+        status, error_message, created_at, updated_at)
+     VALUES
+       (@id, @company_id, @prompt_version, @input_hash, @ai_provider, @model,
+        @summary, @confidence,
+        @operational_pain_points_json, @automation_opportunities_json,
+        @estimated_business_impact_json, @likely_buyer_json, @urgency_json,
+        @proof_angles_json, @risks_json, @raw_response_json,
+        @tokens_input, @tokens_cached, @tokens_output, @estimated_cost,
+        @status, @error_message, @created_at, @updated_at)
+     ON CONFLICT(company_id, input_hash) DO UPDATE SET
+        summary                        = excluded.summary,
+        confidence                     = excluded.confidence,
+        operational_pain_points_json   = excluded.operational_pain_points_json,
+        automation_opportunities_json  = excluded.automation_opportunities_json,
+        estimated_business_impact_json = excluded.estimated_business_impact_json,
+        likely_buyer_json              = excluded.likely_buyer_json,
+        urgency_json                   = excluded.urgency_json,
+        proof_angles_json              = excluded.proof_angles_json,
+        risks_json                     = excluded.risks_json,
+        raw_response_json              = excluded.raw_response_json,
+        tokens_input                   = excluded.tokens_input,
+        tokens_cached                  = excluded.tokens_cached,
+        tokens_output                  = excluded.tokens_output,
+        estimated_cost                 = excluded.estimated_cost,
+        status                         = excluded.status,
+        error_message                  = excluded.error_message,
+        updated_at                     = excluded.updated_at`,
+  ).run(fields);
+}
+
+export function updateAiAnalysisFeedback(
+  analysisId: string,
+  feedbackStatus: string,
+  notes: string | null = null,
+  db: Database = getDb(),
+): boolean {
+  const result = db
+    .prepare(
+      `UPDATE ai_analyses
+          SET feedback_status     = ?,
+              feedback_notes      = COALESCE(?, feedback_notes),
+              feedback_updated_at = ?
+        WHERE id = ?`,
+    )
+    .run(feedbackStatus, notes, now(), analysisId);
+  return result.changes > 0;
+}
+
+export function getAllAnalysesForCompany(
+  companyId: string,
+  db: Database = getDb(),
+): Array<{ id: string; created_at: string; status: string; summary: string | null; confidence: number | null; estimated_cost: number; feedback_status: string }> {
+  return db
+    .prepare(
+      'SELECT id, created_at, status, summary, confidence, estimated_cost, feedback_status FROM ai_analyses WHERE company_id = ? ORDER BY created_at DESC',
+    )
+    .all(companyId) as Array<{
+    id: string;
+    created_at: string;
+    status: string;
+    summary: string | null;
+    confidence: number | null;
+    estimated_cost: number;
+    feedback_status: string;
+  }>;
+}
+
+export function getAiAnalysisStats(db: Database = getDb()): {
+  total: number;
+  ok: number;
+  failed: number;
+  todayCostUsd: number;
+  totalCostUsd: number;
+  feedback: Record<string, number>;
+} {
+  const todayPrefix = new Date().toISOString().slice(0, 10);
+  const totals = db
+    .prepare(
+      `SELECT
+          COUNT(*) AS total,
+          SUM(CASE WHEN status = 'ok' THEN 1 ELSE 0 END) AS ok,
+          SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+          COALESCE(SUM(CASE WHEN substr(created_at,1,10) = ? THEN estimated_cost END), 0) AS today_cost,
+          COALESCE(SUM(estimated_cost), 0) AS total_cost
+         FROM ai_analyses`,
+    )
+    .get(todayPrefix) as {
+    total: number;
+    ok: number;
+    failed: number;
+    today_cost: number;
+    total_cost: number;
+  };
+  const feedbackRows = db
+    .prepare(
+      'SELECT feedback_status, COUNT(*) AS n FROM ai_analyses GROUP BY feedback_status',
+    )
+    .all() as Array<{ feedback_status: string; n: number }>;
+  const feedback: Record<string, number> = {};
+  for (const r of feedbackRows) feedback[r.feedback_status] = r.n;
+  return {
+    total: totals.total,
+    ok: totals.ok ?? 0,
+    failed: totals.failed ?? 0,
+    todayCostUsd: totals.today_cost,
+    totalCostUsd: totals.total_cost,
+    feedback,
+  };
+}
+
 export function getInspectionStats(db: Database = getDb()): {
   inspected: number;
   failed: number;

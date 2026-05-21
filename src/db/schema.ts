@@ -115,4 +115,38 @@ CREATE INDEX IF NOT EXISTS website_inspections_company_idx
   ON website_inspections(company_id);
 CREATE INDEX IF NOT EXISTS website_inspections_fetched_at_idx
   ON website_inspections(fetched_at DESC);
+
+CREATE TABLE IF NOT EXISTS ai_analyses (
+  id                             TEXT PRIMARY KEY,
+  company_id                     TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  prompt_version                 TEXT NOT NULL,
+  input_hash                     TEXT NOT NULL,
+  ai_provider                    TEXT NOT NULL,
+  model                          TEXT NOT NULL,
+  summary                        TEXT,
+  confidence                     REAL,
+  operational_pain_points_json   TEXT,
+  automation_opportunities_json  TEXT,
+  estimated_business_impact_json TEXT,
+  likely_buyer_json              TEXT,
+  urgency_json                   TEXT,
+  proof_angles_json              TEXT,
+  risks_json                     TEXT,
+  raw_response_json              TEXT,
+  tokens_input                   INTEGER NOT NULL DEFAULT 0,
+  tokens_cached                  INTEGER NOT NULL DEFAULT 0,
+  tokens_output                  INTEGER NOT NULL DEFAULT 0,
+  estimated_cost                 REAL NOT NULL DEFAULT 0,
+  feedback_status                TEXT NOT NULL DEFAULT 'pending',
+  feedback_notes                 TEXT,
+  feedback_updated_at            TEXT,
+  status                         TEXT NOT NULL DEFAULT 'ok',
+  error_message                  TEXT,
+  created_at                     TEXT NOT NULL,
+  updated_at                     TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ai_analyses_company_idx     ON ai_analyses(company_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ai_analyses_hash_idx ON ai_analyses(company_id, input_hash);
+CREATE INDEX IF NOT EXISTS ai_analyses_created_at_idx  ON ai_analyses(created_at DESC);
 `;

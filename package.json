@@ -13,11 +13,14 @@
     "inspect:websites": "tsx scripts/inspectWebsites.ts",
     "debug:score": "tsx scripts/debugScore.ts",
     "debug:signals": "tsx scripts/debugSignals.ts",
+    "analyze:top-leads": "tsx scripts/analyzeTopLeads.ts",
+    "debug:ai": "tsx scripts/debugAi.ts",
     "db:reset": "tsx scripts/resetDb.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.97.1",
     "better-sqlite3": "^12.2.0",
     "next": "^14.2.15",
     "node-html-parser": "^6.1.13",
