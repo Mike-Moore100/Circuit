@@ -1,6 +1,8 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Sidebar } from './_components/Sidebar';
 import { SystemStatusBanners } from './_components/SystemStatusBanners';
+import { SectionSubNav } from './_components/SectionSubNav';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -16,6 +18,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Sidebar />
           <main className="app-main">
             <SystemStatusBanners />
+            {/* SectionSubNav uses useSearchParams which Next requires
+               to be wrapped in Suspense at the layout level. */}
+            <Suspense fallback={null}>
+              <SectionSubNav />
+            </Suspense>
             {children}
           </main>
         </div>

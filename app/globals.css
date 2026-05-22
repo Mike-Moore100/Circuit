@@ -187,9 +187,39 @@ code {
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  /* Three top-level groups + a low-key footer for Settings. The
+     flex column distributes the brand/primary nav at the top and
+     pushes settings to the bottom of the viewport. */
 }
 @media (max-width: 960px) {
   .sidebar { position: relative; height: auto; }
+}
+
+.nav-primary {
+  /* Tighter on-screen rhythm than the dense old sidebar — three big
+     navigation targets feel more premium with breathing room than
+     crammed micro-items. */
+  gap: 4px;
+  padding: var(--space-3) var(--space-3) var(--space-3);
+}
+.nav-item-primary {
+  font-size: 14px;
+  padding: 10px 12px;
+}
+.nav-item-primary .nav-item-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: var(--space-3);
+  border-top: 1px solid var(--side-border);
+}
+.nav-item-footer {
+  font-size: 12px;
+  padding: 6px 10px;
+  opacity: 0.85;
 }
 
 .sidebar-brand {
@@ -2808,6 +2838,61 @@ details.row-details > summary:hover { color: var(--text); }
 }
 .lead-mini-list a { color: var(--text); text-decoration: none; }
 .lead-mini-list a:hover { color: var(--accent); }
+
+/* SectionSubNav — horizontal tab strip at the top of every group
+   page. Sidebar is the operator's "where", SubNav is the operator's
+   "what within where". Always present when the route belongs to a
+   group; hides on Settings + any orphan route. */
+.section-subnav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 24px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+.section-subnav-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+.section-subnav-group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--text-subtle);
+}
+.section-subnav-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.section-subnav-tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+.section-subnav-tab {
+  position: relative;
+  padding: 8px 12px 14px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 120ms ease, border-color 120ms ease;
+  white-space: nowrap;
+}
+.section-subnav-tab:hover { color: var(--text); }
+.section-subnav-tab-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
 
 /* Layout-level system banners — one per row, full width, non-dismissable. */
 .system-banners {

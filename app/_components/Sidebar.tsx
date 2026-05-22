@@ -1,92 +1,38 @@
 'use client';
 
-// Persistent operations sidebar. Client component so usePathname() can
-// drive the active-state without server-rendering 9 different navs.
+// Persistent operations sidebar. Three top-level operator goals —
+// Opportunities (commercial output), Pipeline (flow + sources),
+// Intelligence (scoring + calibration). Settings sits as a low-key
+// footer item, visually separated, never as part of the operator's
+// daily navigation rhythm.
 //
-// Each link is a real Next.js route. The IA reflects the pipeline:
-//
-//   Overview        → cross-cutting summary
-//   Discovery       → top of funnel
-//   Qualification   → middle of funnel (inspection / contacts / evidence)
-//   Opportunities   → ranked output
-//   Campaigns       → per-campaign segments
-//   Review          → operator feedback + calibration
-//   Intelligence    → scoring debug + signal explorer
-//   Sources         → connector health
-//   Queue Monitor   → live queue depth + throughput
+// Sub-navigation lives inside each group as horizontal tabs at the
+// top of the page — see app/_components/SectionSubNav.tsx. The
+// sidebar deliberately stays this minimal so the operator never has
+// to mentally model the system's internal pages.
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { currentGroup, NAV_GROUPS, type NavGroupKey } from '../_lib/navStructure';
 
-interface NavBadge {
-  href: string;
-  count: number;
-}
-
-interface NavItemDef {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-}
-
-const icons: Record<string, React.ReactNode> = {
-  overview: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="3" width="7" height="9" rx="1.5" />
-      <rect x="14" y="3" width="7" height="5" rx="1.5" />
-      <rect x="14" y="12" width="7" height="9" rx="1.5" />
-      <rect x="3" y="16" width="7" height="5" rx="1.5" />
-    </svg>
-  ),
-  discovery: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  ),
-  qualification: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  ),
+const icons: Record<NavGroupKey | 'settings', React.ReactNode> = {
   opportunities: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9 12 2" />
     </svg>
   ),
-  campaigns: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="8" y1="6" x2="21" y2="6" />
-      <line x1="8" y1="12" x2="21" y2="12" />
-      <line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" />
-      <line x1="3" y1="12" x2="3.01" y2="12" />
-      <line x1="3" y1="18" x2="3.01" y2="18" />
-    </svg>
-  ),
-  review: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+  pipeline: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 6h16" />
+      <path d="M4 12h11" />
+      <path d="M4 18h6" />
+      <path d="M18 9l4 3-4 3" />
     </svg>
   ),
   intelligence: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M12 2a4 4 0 0 0-4 4v1a4 4 0 0 0 0 8v1a4 4 0 0 0 8 0v-1a4 4 0 0 0 0-8V6a4 4 0 0 0-4-4z" />
-    </svg>
-  ),
-  sources: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <ellipse cx="12" cy="5" rx="9" ry="3" />
-      <path d="M3 5v6c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-      <path d="M3 11v6c0 1.66 4 3 9 3s9-1.34 9-3v-6" />
-    </svg>
-  ),
-  queue: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="2" y="6" width="20" height="12" rx="2" />
-      <line x1="8" y1="6" x2="8" y2="18" />
-      <line x1="14" y1="6" x2="14" y2="18" />
     </svg>
   ),
   settings: (
@@ -97,30 +43,6 @@ const icons: Record<string, React.ReactNode> = {
   ),
 };
 
-const NAV: NavItemDef[] = [
-  { href: '/', label: 'Overview', icon: icons.overview },
-  { href: '/discovery', label: 'Discovery', icon: icons.discovery },
-  { href: '/qualification', label: 'Qualification', icon: icons.qualification },
-  { href: '/opportunities', label: 'Opportunities', icon: icons.opportunities },
-  { href: '/campaigns', label: 'Campaigns', icon: icons.campaigns },
-  { href: '/review', label: 'Review', icon: icons.review },
-  // Phase 1 Live Validation — operator agreement + outcome tracking.
-  // Sits between Review (per-lead feedback) and Calibration (system tuning).
-  { href: '/validation', label: 'Validation', icon: icons.review },
-  // Phase 14 — calibration sits between Review (where feedback is captured)
-  // and Intelligence (where per-lead scoring is debugged).
-  { href: '/calibration', label: 'Calibration', icon: icons.intelligence },
-  { href: '/intelligence', label: 'Intelligence', icon: icons.intelligence },
-  { href: '/sources', label: 'Sources', icon: icons.sources },
-  { href: '/queue', label: 'Queue', icon: icons.queue },
-  { href: '/settings', label: 'Settings', icon: icons.settings },
-];
-
-function isActive(pathname: string, href: string): boolean {
-  if (href === '/') return pathname === '/';
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
 interface SidebarBadges {
   reviewQueue?: number;
   qualificationPending?: number;
@@ -130,10 +52,9 @@ interface SidebarBadges {
 
 export function Sidebar() {
   const pathname = usePathname() ?? '/';
-  // Badges are fetched once when the sidebar mounts — they're tiny counts
-  // so a single fetch is cheaper than threading them through every page's
-  // server component.
+  const activeGroup = currentGroup(pathname);
   const [badges, setBadges] = useState<SidebarBadges>({});
+
   useEffect(() => {
     fetch('/api/sidebar-badges', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
@@ -141,12 +62,13 @@ export function Sidebar() {
         if (data) setBadges(data);
       })
       .catch(() => {});
-  }, [pathname]); // refresh when navigating so counts stay live
+  }, [pathname]);
 
-  const badge = (href: string): number | null => {
-    if (href === '/discovery') return badges.discoveryToday ?? null;
-    if (href === '/opportunities') return badges.reviewQueue ?? null;
-    if (href === '/queue') return badges.qualificationPending ?? null;
+  // Per-group counter — only the one that makes sense to surface at
+  // the top level. Sub-tabs render the rest in their own strip.
+  const groupBadge = (key: NavGroupKey): number | null => {
+    if (key === 'opportunities') return badges.reviewQueue ?? null;
+    if (key === 'pipeline') return badges.qualificationPending ?? null;
     return null;
   };
 
@@ -169,19 +91,19 @@ export function Sidebar() {
         )}
       </div>
 
-      <nav className="nav-stack">
-        {NAV.map((item) => {
-          const active = isActive(pathname, item.href);
-          const count = badge(item.href);
+      <nav className="nav-stack nav-primary">
+        {NAV_GROUPS.map((group) => {
+          const active = activeGroup?.key === group.key;
+          const count = groupBadge(group.key);
           return (
             <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-item${active ? ' nav-item-active' : ''}`}
+              key={group.key}
+              href={group.href}
+              className={`nav-item nav-item-primary${active ? ' nav-item-active' : ''}`}
               aria-current={active ? 'page' : undefined}
             >
-              <span className="nav-item-icon">{item.icon}</span>
-              <span className="nav-item-label">{item.label}</span>
+              <span className="nav-item-icon">{icons[group.key]}</span>
+              <span className="nav-item-label">{group.label}</span>
               {typeof count === 'number' && count > 0 && (
                 <span className="nav-badge">{count}</span>
               )}
@@ -189,6 +111,17 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      <div className="sidebar-footer">
+        <Link
+          href="/settings"
+          className={`nav-item nav-item-footer${pathname.startsWith('/settings') ? ' nav-item-active' : ''}`}
+          aria-current={pathname.startsWith('/settings') ? 'page' : undefined}
+        >
+          <span className="nav-item-icon">{icons.settings}</span>
+          <span className="nav-item-label">Settings</span>
+        </Link>
+      </div>
     </aside>
   );
 }
