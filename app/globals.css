@@ -2835,6 +2835,93 @@ details.row-details > summary:hover { color: var(--text); }
   margin-right: 4px;
 }
 
+/* Registry diagnostics — collapsible diagnostic panel inside the
+   drawer's Companies House section. Operator can verify env state +
+   run a live auth test without touching a terminal. */
+.registry-diagnostics { margin-top: 10px; }
+.registry-diag-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+.registry-diag-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-xs);
+}
+.registry-diag-label { color: var(--text-muted); }
+.registry-diag-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+.registry-diag-value-ok    { color: #047857; }
+.registry-diag-value-warn  { color: var(--warning); }
+.registry-diag-value-err   { color: var(--danger); }
+.registry-diag-value-muted { color: var(--text-muted); font-weight: 400; }
+
+.registry-diag-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.registry-diag-foot {
+  font-size: 10px;
+  color: var(--text-subtle);
+  margin-top: 8px;
+}
+.registry-diag-foot code {
+  background: var(--bg-subtle);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.registry-test-result {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  font-size: var(--text-xs);
+}
+.registry-test-result p { margin: 6px 0 0; }
+.registry-test-ok    { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.registry-test-warn  { background: var(--warning-soft); color: var(--warning); border-color: var(--warning-border); }
+.registry-test-err   { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
+.registry-test-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.registry-test-head strong { color: inherit; }
+.registry-test-status {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.07);
+}
+.registry-test-duration {
+  font-size: 10px;
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.registry-test-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+}
+
 /* Compact registry status pill — used on opportunity cards + tables. */
 .registry-badge {
   display: inline-flex;

@@ -24,6 +24,7 @@ import type {
   CompanyRegistryRecord,
   RegistryEnrichmentSignals,
 } from '../../src/enrichment/companyRegistryTypes';
+import { RegistryDiagnostics } from './RegistryDiagnostics';
 
 function pad(n: number, w: number): string {
   return String(n).padStart(w, '0');
@@ -155,6 +156,8 @@ export function RegistryEnrichment({ companyId, enrichment }: Props) {
         onRun={() => run(false)}
         onForce={() => run(true)}
       />
+
+      <RegistryDiagnostics />
     </section>
   );
 }
