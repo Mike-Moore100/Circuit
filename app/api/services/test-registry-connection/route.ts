@@ -81,12 +81,22 @@ export async function POST() {
     // Basic auth: username=key, password=empty. Companies House is
     // explicit about this — both halves of the colon are required.
     const auth = Buffer.from(`${apiKey}:`).toString('base64');
+    const authHeader = `Basic ${auth}`;
+
+    // Server-side audit log — captures what we sent without exposing
+    // the key. We log only: key presence, length, auth header prefix
+    // (proves the Basic scheme), and the HTTP status we get back.
+    // No key value, no full auth header, no body content.
+    console.log(
+      `[ch-test] key_present=${apiKey.length > 0} key_length=${apiKey.length} auth_prefix=${authHeader.slice(0, 6)} endpoint=/company/${TEST_COMPANY_NUMBER}`,
+    );
+
     const res = await fetch(
       `${config.companiesHouse.baseUrl}/company/${TEST_COMPANY_NUMBER}`,
       {
         signal: controller.signal,
         headers: {
-          Authorization: `Basic ${auth}`,
+          Authorization: authHeader,
           Accept: 'application/json',
         },
       },
@@ -94,6 +104,10 @@ export async function POST() {
     const text = await res.text();
     const durationMs = Date.now() - start;
     const responseBytes = text.length;
+
+    console.log(
+      `[ch-test] response_status=${res.status} duration_ms=${durationMs} response_bytes=${responseBytes}`,
+    );
 
     if (res.status === 200) {
       return NextResponse.json(
