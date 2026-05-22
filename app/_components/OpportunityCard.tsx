@@ -26,6 +26,7 @@ import {
   REVIEW_LABEL,
   type OperatorReviewType,
 } from '../../src/validation/types';
+import { contactabilityLabel } from './opportunityCardLogic';
 
 interface Props {
   row: ReviewQueueRow;
@@ -117,13 +118,7 @@ export function OpportunityCard({
   // Contactability is a one-line summary on the card — full contact list
   // is in the drawer. We bias toward "what's the easiest path?" rather
   // than a per-channel breakdown.
-  const contactability = hasContact
-    ? hasPhone
-      ? 'email + phone'
-      : 'email'
-    : hasPhone
-    ? 'phone only'
-    : 'no direct path';
+  const contactability = contactabilityLabel(hasContact, hasPhone);
 
   const attentionPriority = intel?.humanAttentionPriority ?? 'IGNORE';
   const opportunityScore = intel?.opportunityScore ?? null;
@@ -219,12 +214,30 @@ export function OpportunityCard({
         </div>
       )}
 
-      {/* ---- Quick stats strip (commercial reasoning, compact) ----- */}
-      <div className="opp-card-stats">
+      {/* ---- Commercial reasoning strip (text-heavy) -------------- */}
+      <div className="opp-card-reasoning">
         {intel?.topOpportunityReason && (
           <div className="opp-card-stat">
             <span className="opp-card-stat-label">Strongest reason</span>
             <span className="opp-card-stat-value">{intel.topOpportunityReason}</span>
+          </div>
+        )}
+        {intel?.strongestPainSignal && (
+          <div className="opp-card-stat opp-card-stat-pain">
+            <span className="opp-card-stat-label">Strongest pain</span>
+            <span className="opp-card-stat-value">{intel.strongestPainSignal}</span>
+          </div>
+        )}
+        {intel?.strongestEvidence && (
+          <div className="opp-card-stat">
+            <span className="opp-card-stat-label">Strongest evidence</span>
+            <span className="opp-card-stat-value">{intel.strongestEvidence}</span>
+          </div>
+        )}
+        {intel?.likelyBuyer && (
+          <div className="opp-card-stat">
+            <span className="opp-card-stat-label">Likely buyer</span>
+            <span className="opp-card-stat-value">{intel.likelyBuyer}</span>
           </div>
         )}
         {intel?.topRiskFactor && (
@@ -233,34 +246,36 @@ export function OpportunityCard({
             <span className="opp-card-stat-value">{intel.topRiskFactor}</span>
           </div>
         )}
-        <div className="opp-card-stat">
-          <span className="opp-card-stat-label">Contact</span>
-          <span className="opp-card-stat-value">{contactability}</span>
-        </div>
-        {intel && (
-          <>
-            <div className="opp-card-stat" title="Operational pain (higher = more friction visible)">
-              <span className="opp-card-stat-label">Pain</span>
-              <span className="opp-card-stat-value-num">{operationalPain}</span>
-            </div>
-            <div className="opp-card-stat" title="Buying readiness">
-              <span className="opp-card-stat-label">Readiness</span>
-              <span className="opp-card-stat-value-num">{buyingReadiness}</span>
-            </div>
-            <div className="opp-card-stat" title="Accessibility (how easy to reach a decision-maker)">
-              <span className="opp-card-stat-label">Access</span>
-              <span className="opp-card-stat-value-num">{accessibility}</span>
-            </div>
-            <div
-              className={`opp-card-stat${trustBarrier >= 50 ? ' opp-card-stat-risk' : ''}`}
-              title="Trust barrier (higher = harder to win trust)"
-            >
-              <span className="opp-card-stat-label">Trust barrier</span>
-              <span className="opp-card-stat-value-num">{trustBarrier}</span>
-            </div>
-          </>
-        )}
       </div>
+
+      {/* ---- Sub-score strip (numeric, compact) ------------------- */}
+      {intel && (
+        <div className="opp-card-stats">
+          <div className="opp-card-stat">
+            <span className="opp-card-stat-label">Contact</span>
+            <span className="opp-card-stat-value">{contactability}</span>
+          </div>
+          <div className="opp-card-stat" title="Operational pain (higher = more friction visible)">
+            <span className="opp-card-stat-label">Pain</span>
+            <span className="opp-card-stat-value-num">{operationalPain}</span>
+          </div>
+          <div className="opp-card-stat" title="Buying readiness">
+            <span className="opp-card-stat-label">Readiness</span>
+            <span className="opp-card-stat-value-num">{buyingReadiness}</span>
+          </div>
+          <div className="opp-card-stat" title="Accessibility (how easy to reach a decision-maker)">
+            <span className="opp-card-stat-label">Access</span>
+            <span className="opp-card-stat-value-num">{accessibility}</span>
+          </div>
+          <div
+            className={`opp-card-stat${trustBarrier >= 50 ? ' opp-card-stat-risk' : ''}`}
+            title="Trust barrier (higher = harder to win trust)"
+          >
+            <span className="opp-card-stat-label">Trust barrier</span>
+            <span className="opp-card-stat-value-num">{trustBarrier}</span>
+          </div>
+        </div>
+      )}
 
       {/* ---- Operator tags currently applied ----------------------- */}
       {operatorTags.size > 0 && (

@@ -2377,9 +2377,24 @@ details.row-details > summary:hover { color: var(--text); }
 .whynow-chip.whynow-manual_workflows { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
 .whynow-chip.whynow-weak_automation  { background: var(--info-soft); color: var(--info); border-color: var(--info-border); }
 
+.opp-card-reasoning {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 16px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px dashed var(--border);
+}
+.opp-card-reasoning .opp-card-stat-value {
+  white-space: normal;
+  line-height: 1.35;
+}
+.opp-card-stat-pain .opp-card-stat-value { color: #c2410c; }
+
 .opp-card-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
   padding: 8px 10px;
   background: var(--bg-subtle);

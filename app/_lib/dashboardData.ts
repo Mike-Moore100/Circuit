@@ -226,7 +226,18 @@ export interface IntelligenceRowSummary {
   accessibility: number;
   topOpportunityReason: string | null;
   topRiskFactor: string | null;
-  strongestSignal: string | null;
+  // The strongest evidence-confidence signal — what we believe most about
+  // this lead. Populated from the intelligence orchestrator's already-
+  // computed `strongestSignals` list so this stays deterministic.
+  strongestEvidence: string | null;
+  // The strongest operational pain signal as text (not just a score) —
+  // taken from operationalPain.signals[0]. Lets the card name the
+  // specific pain rather than just show a number.
+  strongestPainSignal: string | null;
+  // Likely buyer. Deterministic-first: derived from the primary contact's
+  // detected role + name. If AI analysis exists for the company it can
+  // override this in the card layer; the summary stays AI-free.
+  likelyBuyer: string | null;
 }
 
 // Rollup of "is there a usable contact path per company". Cheap aggregate
@@ -246,6 +257,43 @@ export function getOperatorTagsByCompany(): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const [companyId, tags] of map) {
     out[companyId] = [...tags];
+  }
+  return out;
+}
+
+// Per-company "likely buyer" label, derived from the primary contact when
+// available. Deterministic — no AI required. Format: "Role · Name" or
+// "Role" when the name is missing. Returns null when we have nothing
+// useful (the card then falls back to AI analysis if any, else "—").
+export function getLikelyBuyerByCompany(): Record<string, string> {
+  const db = getDb();
+  // Prefer is_primary contacts; within that, the highest overall_confidence
+  // (so a guessed primary doesn't beat an extracted non-primary). Older
+  // contact rows may carry `confidence` but no `overall_confidence`.
+  const rows = db
+    .prepare(
+      `SELECT company_id, name, role,
+              COALESCE(overall_confidence, confidence, 0) AS conf,
+              is_primary
+         FROM contacts
+        WHERE role IS NOT NULL OR name IS NOT NULL
+        ORDER BY is_primary DESC, conf DESC`,
+    )
+    .all() as Array<{
+    company_id: string;
+    name: string | null;
+    role: string | null;
+    conf: number;
+    is_primary: number;
+  }>;
+  const out: Record<string, string> = {};
+  for (const r of rows) {
+    if (out[r.company_id]) continue; // first one per company wins
+    const parts: string[] = [];
+    if (r.role) parts.push(r.role);
+    if (r.name) parts.push(r.name);
+    if (parts.length === 0) continue;
+    out[r.company_id] = parts.join(' · ');
   }
   return out;
 }
@@ -278,6 +326,7 @@ export function getIntelligenceSummariesByCompany(): Record<string, Intelligence
   const db = getDb();
   const rows = listOpportunityIntelligence(db, { limit: 500 });
   const out: Record<string, IntelligenceRowSummary> = {};
+  const buyerByCompany = getLikelyBuyerByCompany();
 
   // We need verified signals + contactability for the why-now computation.
   // Single-query approach keeps this O(1) DB calls instead of O(N).
@@ -351,7 +400,9 @@ export function getIntelligenceSummariesByCompany(): Record<string, Intelligence
       accessibility: intelligence?.accessibility.score ?? 0,
       topOpportunityReason: intelligence?.opportunityReasons[0] ?? null,
       topRiskFactor: intelligence?.riskFactors[0] ?? null,
-      strongestSignal: intelligence?.strongestSignals[0] ?? null,
+      strongestEvidence: intelligence?.strongestSignals[0] ?? null,
+      strongestPainSignal: intelligence?.operationalPain.signals[0] ?? null,
+      likelyBuyer: buyerByCompany[r.company_id] ?? null,
     };
   }
   return out;

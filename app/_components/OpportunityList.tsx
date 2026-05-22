@@ -18,6 +18,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { OpportunityCard } from './OpportunityCard';
+import { mapHotkey, moveCursor } from './opportunityCardLogic';
 import type { ReviewQueueRow } from '../../src/types';
 import type { IntelligenceRowSummary } from '../_lib/dashboardData';
 
@@ -34,19 +35,6 @@ interface Props {
   selectedId: string | null;
   campaignFilter: string | null;
 }
-
-// Hotkey → quick-action button data attribute. We click rather than
-// re-implement the action so the persistence path stays in one place.
-const HOTKEYS: Record<string, string> = {
-  s: 'strong_opportunity', // teach: this lead is strong
-  i: 'ignore',
-  r: 'revisit_later',
-  v: 'likely_high_value',
-  f: 'likely_fast_close',
-  w: 'wrong_campaign',
-  t: 'high_trust_barrier',
-  m: 'needs_manual_investigation',
-};
 
 function buildDetailHref(companyId: string, campaignFilter: string | null): string {
   const params = new URLSearchParams({ lead: companyId });
@@ -97,51 +85,35 @@ export function OpportunityList({ items, selectedId, campaignFilter }: Props) {
       const target = e.target as HTMLElement | null;
       if (target && /input|textarea|select/i.test(target.tagName)) return;
       if (target?.isContentEditable) return;
+      if (items.length === 0) return;
 
-      const key = e.key.toLowerCase();
-      const max = items.length - 1;
-      if (max < 0) return;
+      const intent = mapHotkey(e.key, e.key, e.shiftKey);
+      if (!intent) return;
 
-      if (key === 'j' || e.key === 'ArrowDown') {
+      if (intent.kind === 'move' || intent.kind === 'jump') {
         e.preventDefault();
-        setCursor((c) => Math.min(c + 1, max));
-        return;
-      }
-      if (key === 'k' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        setCursor((c) => Math.max(c - 1, 0));
-        return;
-      }
-      if (key === 'g' && !e.shiftKey) {
-        e.preventDefault();
-        setCursor(0);
-        return;
-      }
-      if (e.key === 'G' || (key === 'g' && e.shiftKey)) {
-        e.preventDefault();
-        setCursor(max);
+        setCursor((c) => moveCursor(c, intent, items.length));
         return;
       }
 
       const active = items[cursor];
       if (!active) return;
 
-      if (key === 'o' || key === 'enter' || e.key === 'Enter') {
+      if (intent.kind === 'open') {
         e.preventDefault();
         router.push(buildDetailHref(active.row.companyId, campaignFilter), {
           scroll: false,
         });
         return;
       }
-      if (key === 'escape' || e.key === 'Escape') {
+      if (intent.kind === 'close') {
         if (selectedId) {
           e.preventDefault();
           router.push('/opportunities', { scroll: false });
         }
         return;
       }
-      if (key === 'e') {
-        // Expand toggle — fire the "More" button on the active card.
+      if (intent.kind === 'expand') {
         e.preventDefault();
         const card = document.querySelector<HTMLElement>(
           `[data-card-id="${active.row.companyId}"]`,
@@ -152,37 +124,31 @@ export function OpportunityList({ items, selectedId, campaignFilter }: Props) {
         moreBtn?.click();
         return;
       }
-      if (key === '?') {
+      if (intent.kind === 'help') {
         e.preventDefault();
-        // Toggle the help dialog by clicking the global trigger if present.
         document
           .querySelector<HTMLButtonElement>('[data-opp-help]')
           ?.click();
         return;
       }
-
-      const action = HOTKEYS[key];
-      if (action) {
+      if (intent.kind === 'action') {
         e.preventDefault();
         const card = document.querySelector<HTMLElement>(
           `[data-card-id="${active.row.companyId}"]`,
         );
-        // Try primary actions first, then secondary (which may need to
-        // expand). If the secondary row is collapsed, expand it first
-        // so the button is in the DOM.
-        let btn = card?.querySelector<HTMLButtonElement>(
-          `[data-quick-action="${action}"]`,
+        // Try primary actions first; secondary actions live behind
+        // "More" so we expand and retry on the next frame if missing.
+        const btn = card?.querySelector<HTMLButtonElement>(
+          `[data-quick-action="${intent.action}"]`,
         );
         if (!btn) {
           const more = card?.querySelector<HTMLButtonElement>(
             'button[aria-expanded="false"]',
           );
           more?.click();
-          // Re-query after the expand re-render. We use rAF rather than
-          // setTimeout to stay frame-aligned.
           requestAnimationFrame(() => {
             const retry = card?.querySelector<HTMLButtonElement>(
-              `[data-quick-action="${action}"]`,
+              `[data-quick-action="${intent.action}"]`,
             );
             retry?.click();
           });
