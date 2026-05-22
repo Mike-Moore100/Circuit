@@ -2114,6 +2114,85 @@ export function deleteReviewTag(
 }
 
 // ---------------------------------------------------------------------------
+// Phase 1 — Companies House (UK) enrichment cache.
+// One row per company. The enrichment service writes both the raw
+// record (JSON) and the derived signals so the dashboard never has to
+// re-derive them.
+// ---------------------------------------------------------------------------
+export interface RegistryEnrichmentDbRow {
+  company_id: string;
+  registry: string | null;
+  outcome: string;
+  record_json: string | null;
+  signals_json: string | null;
+  reason: string;
+  fetched_at: string;
+}
+
+export interface UpsertRegistryEnrichmentInput {
+  companyId: string;
+  registry: string | null;
+  outcome: string;
+  recordJson: string | null;
+  signalsJson: string | null;
+  reason: string;
+  fetchedAt: string;
+}
+
+export function upsertRegistryEnrichment(
+  input: UpsertRegistryEnrichmentInput,
+  db: Database = getDb(),
+): void {
+  db.prepare(
+    `INSERT INTO registry_enrichments
+       (company_id, registry, outcome, record_json, signals_json, reason, fetched_at)
+     VALUES (@companyId, @registry, @outcome, @recordJson, @signalsJson, @reason, @fetchedAt)
+     ON CONFLICT(company_id) DO UPDATE SET
+       registry     = excluded.registry,
+       outcome      = excluded.outcome,
+       record_json  = excluded.record_json,
+       signals_json = excluded.signals_json,
+       reason       = excluded.reason,
+       fetched_at   = excluded.fetched_at`,
+  ).run(input);
+}
+
+export function getRegistryEnrichment(
+  companyId: string,
+  db: Database = getDb(),
+): RegistryEnrichmentDbRow | null {
+  const row = db
+    .prepare('SELECT * FROM registry_enrichments WHERE company_id = ?')
+    .get(companyId) as RegistryEnrichmentDbRow | undefined;
+  return row ?? null;
+}
+
+export function listRegistryEnrichments(
+  db: Database = getDb(),
+): RegistryEnrichmentDbRow[] {
+  return db
+    .prepare('SELECT * FROM registry_enrichments ORDER BY fetched_at DESC')
+    .all() as RegistryEnrichmentDbRow[];
+}
+
+export function getRegistryEnrichmentStats(
+  db: Database = getDb(),
+): { total: number; byOutcome: Record<string, number> } {
+  const rows = db
+    .prepare(
+      'SELECT outcome, COUNT(*) AS n FROM registry_enrichments GROUP BY outcome',
+    )
+    .all() as Array<{ outcome: string; n: number }>;
+  const byOutcome: Record<string, number> = {};
+  let total = 0;
+  for (const r of rows) {
+    byOutcome[r.outcome] = r.n;
+    total += r.n;
+  }
+  return { total, byOutcome };
+}
+
+// ---------------------------------------------------------------------------
 // Phase 1 Live Validation — lead_outcomes (commercial outcome tracking).
 // Append-only; multiple rows per company are expected.
 // ---------------------------------------------------------------------------

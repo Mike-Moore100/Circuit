@@ -266,6 +266,23 @@ CREATE TABLE IF NOT EXISTS opportunity_intelligence (
 CREATE INDEX IF NOT EXISTS opp_intel_score_idx     ON opportunity_intelligence(opportunity_score DESC);
 CREATE INDEX IF NOT EXISTS opp_intel_priority_idx  ON opportunity_intelligence(human_attention_priority);
 
+-- Phase 1 — Companies House (UK) enrichment cache. One row per company.
+-- Outcome captures why we did/didn't enrich (skipped_non_uk,
+-- skipped_no_key, error, enriched). record_json + signals_json store
+-- the full result for the dashboard; reason is a short operator string.
+CREATE TABLE IF NOT EXISTS registry_enrichments (
+  company_id   TEXT PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
+  registry     TEXT,
+  outcome      TEXT NOT NULL,
+  record_json  TEXT,
+  signals_json TEXT,
+  reason       TEXT NOT NULL,
+  fetched_at   TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS registry_enrichments_outcome_idx ON registry_enrichments(outcome);
+CREATE INDEX IF NOT EXISTS registry_enrichments_fetched_idx ON registry_enrichments(fetched_at DESC);
+
 -- Phase 11: massive cheap discovery layer. raw_discoveries is the wide
 -- top-of-funnel table; validated unique rows get promoted into companies.
 CREATE TABLE IF NOT EXISTS discovery_runs (

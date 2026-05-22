@@ -11,6 +11,8 @@ import type { OpportunityIntelligence } from '../../src/intelligence/intelligenc
 import { ReviewActions } from './ReviewActions';
 import { LeadReviewActions } from './LeadReviewActions';
 import { OutcomeTracker, type OutcomeRow } from './OutcomeTracker';
+import { RegistryEnrichment } from './RegistryEnrichment';
+import type { RegistryEnrichmentPanel } from '../_lib/dashboardData';
 
 interface Props {
   lead: ReviewQueueRow;
@@ -21,6 +23,7 @@ interface Props {
   evidence: LeadEvidenceSummary | null;
   intelligence: OpportunityIntelligence | null;
   outcomes: OutcomeRow[];
+  registryEnrichment: RegistryEnrichmentPanel | null;
 }
 
 function emailStatusLabel(status: string | null, hasEmail: boolean): string {
@@ -108,6 +111,7 @@ export function LeadDrawer({
   evidence,
   intelligence,
   outcomes,
+  registryEnrichment,
 }: Props) {
   const positiveReasons = lead.reasons.filter((r) => r.delta >= 0);
   const negativeReasons = [
@@ -554,6 +558,8 @@ export function LeadDrawer({
             )}
           </section>
         )}
+
+        <RegistryEnrichment enrichment={registryEnrichment} />
 
         <section className="drawer-section">
           <h3 className="drawer-label">Outcome tracking</h3>

@@ -13,6 +13,7 @@ import {
   getIntelligenceSummariesByCompany,
   getOperatorTagsByCompany,
   getOutcomesForLead,
+  getRegistryEnrichmentForLead,
 } from '../_lib/dashboardData';
 import { LeadDrawer } from '../_components/LeadDrawer';
 import { OpportunityHelp } from '../_components/OpportunityHelp';
@@ -209,6 +210,7 @@ export default async function OpportunitiesPage({
           evidence={getEvidenceForLead(selectedLead.companyId)}
           intelligence={getIntelligenceForLead(selectedLead.companyId)}
           outcomes={getOutcomesForLead(selectedLead.companyId)}
+          registryEnrichment={getRegistryEnrichmentForLead(selectedLead.companyId)}
         />
       )}
     </>

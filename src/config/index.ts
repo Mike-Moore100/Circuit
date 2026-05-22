@@ -54,6 +54,25 @@ export const config = {
     enabled: (process.env.INTELLIGENCE_ENABLED ?? '1') !== '0',
   },
 
+  // Phase 1 — Companies House (UK registry) enrichment. Strictly optional;
+  // the pipeline never depends on it. Disabled by default so US-only
+  // deployments don't make pointless calls. The provider also fails
+  // safely if `apiKey` is empty — `enabled` is just a UX gate.
+  companiesHouse: {
+    enabled: (process.env.COMPANIES_HOUSE_ENABLED ?? '0') === '1',
+    apiKey: process.env.COMPANIES_HOUSE_API_KEY ?? '',
+    baseUrl:
+      process.env.COMPANIES_HOUSE_BASE_URL ?? 'https://api.company-information.service.gov.uk',
+    requestTimeoutMs: envInt('COMPANIES_HOUSE_REQUEST_TIMEOUT_MS', 8000),
+    // Stale-after window for cached enrichments — re-fetch beyond this.
+    // Companies House status can change (dissolution, name change),
+    // but daily refresh is overkill; 30 days strikes a balance.
+    cacheTtlDays: envInt('COMPANIES_HOUSE_CACHE_TTL_DAYS', 30),
+    // Per-batch ceiling so a runaway enrichment loop can't burn the
+    // 600 requests / 5 min free-tier rate limit.
+    maxLeadsPerRun: envInt('COMPANIES_HOUSE_MAX_LEADS_PER_RUN', 50),
+  },
+
   // FREE_SOURCE_MODE=1 → suppress paid sources during sourcing (e.g.
   // Google Places). The mock connector + any free sources remain
   // available, so the rest of the pipeline still has data to chew on.

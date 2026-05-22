@@ -11,6 +11,7 @@ import {
   getLatestReviewByCompany,
   getOpportunityIntelligence,
   getOutcomesForCompany,
+  getRegistryEnrichment,
   getReviewTagsByCompany,
   getQualificationQueueStats,
   getRecentSourceRuns,
@@ -274,6 +275,43 @@ export function getOperatorTagsByCompany(): Record<string, string[]> {
     out[companyId] = [...tags];
   }
   return out;
+}
+
+// Companies House enrichment for a single lead. Returns null if no row
+// exists yet OR the lead was skipped (non-UK, no key, etc.). The drawer
+// renders nothing in those cases, so the section only appears when the
+// enrichment is real.
+import type {
+  CompanyRegistryRecord,
+  RegistryEnrichmentSignals,
+} from '../../src/enrichment/companyRegistryTypes';
+
+export interface RegistryEnrichmentPanel {
+  outcome: string;
+  reason: string;
+  fetchedAt: string;
+  registry: string | null;
+  record: CompanyRegistryRecord | null;
+  signals: RegistryEnrichmentSignals | null;
+}
+
+export function getRegistryEnrichmentForLead(
+  companyId: string,
+): RegistryEnrichmentPanel | null {
+  const row = getRegistryEnrichment(companyId, getDb());
+  if (!row) return null;
+  let record: CompanyRegistryRecord | null = null;
+  let signals: RegistryEnrichmentSignals | null = null;
+  try { record = row.record_json ? JSON.parse(row.record_json) as CompanyRegistryRecord : null; } catch { /* ignore */ }
+  try { signals = row.signals_json ? JSON.parse(row.signals_json) as RegistryEnrichmentSignals : null; } catch { /* ignore */ }
+  return {
+    outcome: row.outcome,
+    reason: row.reason,
+    fetchedAt: row.fetched_at,
+    registry: row.registry,
+    record,
+    signals,
+  };
 }
 
 // Per-lead outcome rows for the drawer's outcome tracker. Returns the

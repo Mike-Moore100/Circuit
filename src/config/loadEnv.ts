@@ -11,8 +11,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const envPath = path.resolve(process.cwd(), '.env');
-if (fs.existsSync(envPath)) {
+// Read both .env and .env.local. Existing process.env values still win,
+// so an explicit `KEY=x npm run …` invocation overrides either file.
+// .env.local is gitignored and is where local-only secrets like the
+// Companies House API key live; matching Next.js's loader behaviour
+// means dashboard + CLIs see the same secrets in development.
+const candidatePaths = ['.env', '.env.local'].map((p) =>
+  path.resolve(process.cwd(), p),
+);
+
+for (const envPath of candidatePaths) {
+  if (!fs.existsSync(envPath)) continue;
   const content = fs.readFileSync(envPath, 'utf-8');
   for (const rawLine of content.split('\n')) {
     const line = rawLine.trim();
