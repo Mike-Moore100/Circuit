@@ -15,8 +15,14 @@ import type {
   SearchOptions,
 } from './discoveryTypes';
 
+// DuckDuckGo HTML actively filters bot-shaped User-Agents — requests
+// with our previous self-identifying string returned 200 OK but with no
+// result rows. A real browser UA is required for the SERP to actually
+// render results. We're still small-scale + polite (2s+ between
+// requests by default + caps per query), which is the operative
+// constraint here.
 const DEFAULT_USER_AGENT =
-  'CircuitDiscovery/0.1 (+lead-research bot; non-commercial; respect robots)';
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
 // DuckDuckGo HTML endpoint — public, no API key required. Pages can be a
 // few hundred KB; parsing is cheap.

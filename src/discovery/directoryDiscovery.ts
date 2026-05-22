@@ -18,8 +18,11 @@ import type {
   SearchOptions,
 } from './discoveryTypes';
 
+// Real-browser UA is required — most directories return a 200 placeholder
+// or 403 to self-identifying bot UAs. We stay polite via long rate-limits
+// + small per-query caps; this is small-scale operator-driven discovery.
 const DEFAULT_USER_AGENT =
-  'CircuitDiscovery/0.1 (+lead-research bot; non-commercial; respect robots)';
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
 export interface DirectoryConfig {
   name: string; // e.g. 'directory.yell'

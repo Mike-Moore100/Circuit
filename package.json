@@ -30,6 +30,8 @@
     "run:promotion": "tsx scripts/runPromotionCli.ts",
     "debug:calibration": "tsx scripts/debugCalibration.ts",
     "run:calibration": "tsx scripts/runCalibrationCli.ts",
+    "discover:free": "tsx scripts/discoverFree.ts",
+    "validate:free-real": "tsx scripts/validateFreeReal.ts",
     "db:reset": "tsx scripts/resetDb.ts",
     "test": "vitest run",
     "test:watch": "vitest"

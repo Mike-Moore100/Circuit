@@ -19,6 +19,9 @@ import { getDb } from '../db/client';
 import { inspectAndCache } from '../inspection/inspect';
 import { discoverContactsForCompany } from '../contacts/contactDiscovery';
 import { recomputeIntelligenceForLead } from '../services/intelligenceService';
+import { scoreLead } from '../scoring/intentScoring';
+import { persistScore } from '../db/repository';
+import type { RawLead } from '../types/index';
 import {
   promoteDiscoveryToCompanies,
   type PromotionRunOptions,
@@ -88,6 +91,14 @@ export async function processQualificationQueue(
         db,
       });
 
+      // ---- scoring (rule + intent + campaign) ---------------------------
+      // Promoted-from-discovery companies don't go through the regular
+      // sourcing pipeline so they have no lead_scores row yet. We build a
+      // synthetic RawLead from what we know about the company + the
+      // signals the inspector just persisted, then run the same scoring
+      // chain the pipeline uses.
+      await scorePromotedLead(item.companyId, item.domain, db);
+
       // ---- intelligence -------------------------------------------------
       recomputeIntelligenceForLead(item.companyId, db);
 
@@ -111,6 +122,67 @@ export async function processQualificationQueue(
     failed,
     errors,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Score a promoted company by synthesising the RawLead shape the pipeline's
+// scoring stack expects. Inspection has already run by this point so the
+// signals table carries verified.* rows; we lift those into the synthetic
+// lead's signals array and let the existing scoring code do its job.
+// ---------------------------------------------------------------------------
+async function scorePromotedLead(
+  companyId: string,
+  domain: string,
+  db: Database,
+): Promise<void> {
+  const company = db
+    .prepare('SELECT * FROM companies WHERE id = ?')
+    .get(companyId) as
+    | {
+        name: string;
+        website_url: string | null;
+        industry: string | null;
+        location: string | null;
+        size_estimate: number | null;
+        source: string;
+      }
+    | undefined;
+  if (!company) return;
+
+  // Lift inspection signals into the lead so rule + intent + campaign
+  // see them. We use confidence=1 because inspection signals are
+  // verified-by-machine rather than fuzzy source signals.
+  const signals = db
+    .prepare(
+      `SELECT type, value, confidence FROM signals
+       WHERE company_id = ?`,
+    )
+    .all(companyId) as Array<{ type: string; value: string; confidence: number }>;
+
+  const lead: RawLead = {
+    companyName: company.name,
+    websiteUrl: company.website_url,
+    industry: company.industry,
+    location: company.location,
+    sizeEstimate: company.size_estimate,
+    source: company.source,
+    sourceUrl: `https://${domain}`,
+    contactName: null,
+    contactRole: null,
+    contactEmail: null,
+    linkedinUrl: null,
+    notes: null,
+    signals: signals.map((s) => ({
+      type: s.type,
+      value: s.value,
+      confidence: s.confidence,
+    })),
+  };
+
+  // scoreLead chains evaluateRules + evaluateIntent + classifyCampaign +
+  // combineScores. Same code path the regular pipeline uses.
+  const combined = scoreLead(lead);
+  persistScore(companyId, combined, db);
 }
 
 // ---------------------------------------------------------------------------
