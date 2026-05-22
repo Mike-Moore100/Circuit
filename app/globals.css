@@ -2757,6 +2757,10 @@ details.row-details > summary:hover { color: var(--text); }
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 12px;
+  /* Don't stretch panels to match the tallest sibling — a short panel
+     next to a long one (e.g. Top industries with 1 bar vs Underrepresented
+     with 8 rows) leaves huge empty voids otherwise. */
+  align-items: start;
 }
 .panel-sub {
   font-size: var(--text-sm);
