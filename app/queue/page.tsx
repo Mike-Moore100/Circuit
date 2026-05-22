@@ -1,6 +1,6 @@
-// Queue Monitor — live qualification queue depth, throughput, failures.
-// Shows the bridge between discovery and qualification in operational
-// terms.
+// Queue Monitor — pipeline health. Pending / Processing / Failed only.
+// Promotion reasons moved to Discovery (where the operator thinks
+// about source quality); skip reasons there too.
 
 import { PageHeader } from '../_components/PageHeader';
 import { StatStrip } from '../_components/StatStrip';
@@ -17,7 +17,7 @@ export default async function QueuePage() {
     <>
       <PageHeader
         title="Queue Monitor"
-        subtitle="Promotion gate → qualification pipeline. Live state of every domain in flight."
+        subtitle="Promotion → qualification pipeline state. Pending, processing, failed."
       />
 
       <section className="section">
@@ -26,33 +26,38 @@ export default async function QueuePage() {
             {
               label: 'Active',
               value: totalActive,
-              foot: 'pending + processing',
+              foot: `${stats.byStatus.PENDING ?? 0} pending · ${stats.byStatus.PROCESSING ?? 0} processing`,
               tone: totalActive > 50 ? 'warning' : 'default',
             },
             {
-              label: 'Promoted',
-              value: stats.byStatus.PROMOTED ?? 0,
-              foot: `${stats.recent24hPromoted} in last 24h`,
+              label: 'Promoted (24h)',
+              value: stats.recent24hPromoted,
               tone: 'success',
             },
             {
-              label: 'Skipped',
-              value: stats.byStatus.SKIPPED ?? 0,
-              foot: `${stats.recent24hSkipped} in last 24h`,
-            },
-            {
-              label: 'Failed',
-              value: stats.byStatus.FAILED ?? 0,
-              foot: `${stats.recent24hFailed} in last 24h`,
-              tone: (stats.byStatus.FAILED ?? 0) > 0 ? 'danger' : 'default',
+              label: 'Failed (24h)',
+              value: stats.recent24hFailed,
+              tone: stats.recent24hFailed > 0 ? 'danger' : 'default',
             },
           ]}
         />
       </section>
 
+      {totalActive === 0 && failed.length === 0 && (
+        <section className="section">
+          <div className="panel">
+            <div className="empty">
+              <strong>Queue is clear</strong>
+              Nothing pending, processing, or failed. Run{' '}
+              <code>npm run run:promotion</code> to evaluate new discoveries.
+            </div>
+          </div>
+        </section>
+      )}
+
       {pending.length > 0 && (
         <section className="section">
-          <h2 className="section-title">Pending — awaiting qualification ({pending.length})</h2>
+          <h2 className="section-title">Pending ({pending.length})</h2>
           <div className="panel">
             <table className="runs-table">
               <thead>
@@ -60,8 +65,7 @@ export default async function QueuePage() {
                   <th>Priority</th>
                   <th>Domain</th>
                   <th>Source</th>
-                  <th>Reason</th>
-                  <th>Created</th>
+                  <th>Promoted</th>
                 </tr>
               </thead>
               <tbody>
@@ -70,7 +74,6 @@ export default async function QueuePage() {
                     <td className="num">{r.priority}</td>
                     <td>{r.domain}</td>
                     <td><span className="tag">{r.source}</span></td>
-                    <td>{r.promotion_reason}</td>
                     <td>{new Date(r.created_at).toLocaleString()}</td>
                   </tr>
                 ))}
@@ -82,11 +85,11 @@ export default async function QueuePage() {
 
       {processing.length > 0 && (
         <section className="section">
-          <h2 className="section-title">Processing now ({processing.length})</h2>
+          <h2 className="section-title">Processing ({processing.length})</h2>
           <div className="panel">
             <table className="runs-table">
               <thead>
-                <tr><th>Domain</th><th>Source</th><th>Started</th></tr>
+                <tr><th>Domain</th><th>Source</th><th>Since</th></tr>
               </thead>
               <tbody>
                 {processing.map((r) => (
@@ -104,7 +107,7 @@ export default async function QueuePage() {
 
       {failed.length > 0 && (
         <section className="section">
-          <h2 className="section-title">Recent failures ({failed.length})</h2>
+          <h2 className="section-title">Failed ({failed.length})</h2>
           <div className="panel">
             <table className="runs-table">
               <thead>
@@ -121,32 +124,6 @@ export default async function QueuePage() {
               </tbody>
             </table>
           </div>
-        </section>
-      )}
-
-      {pending.length === 0 && processing.length === 0 && failed.length === 0 && (
-        <section className="section">
-          <div className="panel">
-            <div className="empty">
-              <strong>Queue is clear</strong>
-              No items currently pending, processing, or failed. Run{' '}
-              <code>npm run run:promotion</code> to evaluate new discoveries.
-            </div>
-          </div>
-        </section>
-      )}
-
-      {stats.topPromotionReasons.length > 0 && (
-        <section className="section">
-          <h2 className="section-title">Top promotion reasons</h2>
-          <ul className="reason-list">
-            {stats.topPromotionReasons.map((r) => (
-              <li key={r.reason} className="reason pos">
-                <span className="delta">{r.count}</span>
-                <span className="label">{r.reason}</span>
-              </li>
-            ))}
-          </ul>
         </section>
       )}
     </>

@@ -1,6 +1,8 @@
-// Sources — source connector health + recent run history. Both pipeline
-// sources (Google Maps, mock) and discovery connectors (DuckDuckGo,
-// directories) surface here.
+// Sources — pipeline source connector health. Discovery connector
+// quality lives on the Discovery page (that's where the operator
+// actually thinks about it); this page is about the pipeline source
+// runs (Google Maps, mock, etc.) — their fetch volume and failure
+// patterns.
 
 import { PageHeader } from '../_components/PageHeader';
 import { StatStrip } from '../_components/StatStrip';
@@ -9,66 +11,45 @@ import { getSourcesPageData } from '../_lib/pageData';
 export const dynamic = 'force-dynamic';
 
 export default async function SourcesPage() {
-  const { recent, discoveryStats } = getSourcesPageData();
+  const { recent } = getSourcesPageData();
   const totalCalls = recent.reduce((acc, r) => acc + r.api_calls, 0);
+  const failed = recent.filter((r) => r.status === 'failed').length;
+  const fresh = recent[0];
 
   return (
     <>
       <PageHeader
         title="Sources"
-        subtitle="Discovery + lead sourcing connectors. Free + paid both surface here."
+        subtitle="Pipeline source connector health. Discovery connector quality lives on Discovery."
       />
 
       <section className="section">
         <StatStrip
           items={[
-            { label: 'Discovery sources', value: Object.keys(discoveryStats.bySource).length },
-            { label: 'Pipeline runs', value: recent.length },
-            { label: 'API calls (recent)', value: totalCalls },
-            { label: 'Discovery valid 24h', value: discoveryStats.validToday },
+            { label: 'Recent runs', value: recent.length },
+            { label: 'API calls', value: totalCalls },
+            {
+              label: 'Failures',
+              value: failed,
+              tone: failed > 0 ? 'warning' : 'default',
+            },
+            {
+              label: 'Last run',
+              value: fresh ? new Date(fresh.started_at).toLocaleDateString() : '—',
+              foot: fresh ? fresh.source : 'no runs yet',
+            },
           ]}
         />
-      </section>
-
-      <section className="section">
-        <h2 className="section-title">Discovery connector quality</h2>
-        <div className="panel">
-          {Object.keys(discoveryStats.bySource).length === 0 ? (
-            <div className="empty">No discovery activity yet.</div>
-          ) : (
-            <table className="runs-table">
-              <thead>
-                <tr>
-                  <th>Source</th>
-                  <th>Runs</th>
-                  <th>Valid</th>
-                  <th>Rejected</th>
-                  <th>Duplicate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(discoveryStats.bySource)
-                  .sort((a, b) => b[1].valid - a[1].valid)
-                  .map(([src, s]) => (
-                    <tr key={src}>
-                      <td><span className="tag">{src}</span></td>
-                      <td className="num">{s.runs}</td>
-                      <td className="num">{s.valid}</td>
-                      <td className="num">{s.rejected}</td>
-                      <td className="num">{s.deduped}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          )}
-        </div>
       </section>
 
       <section className="section">
         <h2 className="section-title">Recent pipeline runs</h2>
         <div className="panel">
           {recent.length === 0 ? (
-            <div className="empty">No pipeline runs recorded yet.</div>
+            <div className="empty">
+              <strong>No pipeline runs recorded</strong>
+              Run <code>npm run seed</code> or <code>npm run pipeline:google-maps</code>.
+            </div>
           ) : (
             <table className="runs-table">
               <thead>

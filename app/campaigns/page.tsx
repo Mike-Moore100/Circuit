@@ -1,18 +1,16 @@
-// Campaigns — per-campaign breakdown with attention bucket distribution
-// + average opportunity score. Click through to the filtered opportunities
-// view for any campaign.
+// Campaigns — operational segmentation only. Cards convey count +
+// avg opportunity + immediate/high counts; the distribution table that
+// duplicated this got dropped.
 
 import Link from 'next/link';
 import { PageHeader } from '../_components/PageHeader';
 import { getCampaignsPageData } from '../_lib/pageData';
-import {
-  CAMPAIGN_LABEL,
-  CAMPAIGN_DESCRIPTION,
-  type Campaign,
-} from '../../src/scoring/campaignTypes';
+import { CAMPAIGN_LABEL, type Campaign } from '../../src/scoring/campaignTypes';
 
 export const dynamic = 'force-dynamic';
 
+// Order reflects pipeline preference: actionable campaigns first,
+// nurture next, reject last.
 const CAMPAIGN_ORDER: Campaign[] = [
   'AI_AUTOMATION',
   'WEB_REBUILD',
@@ -33,7 +31,7 @@ export default async function CampaignsPage() {
     <>
       <PageHeader
         title="Campaigns"
-        subtitle="Per-campaign segmentation. Click any campaign to filter the Opportunities queue."
+        subtitle="Operational segmentation. Click a campaign to filter the Opportunities queue."
       />
 
       <section className="section">
@@ -41,14 +39,15 @@ export default async function CampaignsPage() {
           {CAMPAIGN_ORDER.map((c) => {
             const stats = byKey.get(c);
             const total = stats?.total ?? 0;
-            if (total === 0 && c !== 'REJECT') {
+            // Empty campaigns still render so the operator sees the full
+            // segmentation; they're just visually muted.
+            if (total === 0) {
               return (
-                <div key={c} className={`campaign-card campaign-${c}`}>
+                <div key={c} className={`campaign-card campaign-${c} campaign-card-empty`}>
                   <div className="campaign-card-head">
                     <span className={`campaign-tag campaign-${c}`}>{CAMPAIGN_LABEL[c]}</span>
                     <span className="campaign-count">0</span>
                   </div>
-                  <p className="campaign-desc">{CAMPAIGN_DESCRIPTION[c]}</p>
                 </div>
               );
             }
@@ -62,7 +61,6 @@ export default async function CampaignsPage() {
                   <span className={`campaign-tag campaign-${c}`}>{CAMPAIGN_LABEL[c]}</span>
                   <span className="campaign-count">{total}</span>
                 </div>
-                <p className="campaign-desc">{CAMPAIGN_DESCRIPTION[c]}</p>
                 {stats && (
                   <div className="campaign-card-stats">
                     {stats.avg_opp !== null && (
@@ -83,44 +81,6 @@ export default async function CampaignsPage() {
               </Link>
             );
           })}
-        </div>
-      </section>
-
-      <section className="section">
-        <h2 className="section-title">Distribution</h2>
-        <div className="panel">
-          <table className="runs-table">
-            <thead>
-              <tr>
-                <th>Campaign</th>
-                <th>Total</th>
-                <th>Avg score</th>
-                <th>Avg opportunity</th>
-                <th>Immediate</th>
-                <th>High</th>
-                <th>Medium</th>
-              </tr>
-            </thead>
-            <tbody>
-              {CAMPAIGN_ORDER.map((c) => {
-                const stats = byKey.get(c);
-                if (!stats) return null;
-                return (
-                  <tr key={c}>
-                    <td>
-                      <span className={`campaign-tag campaign-${c}`}>{CAMPAIGN_LABEL[c]}</span>
-                    </td>
-                    <td className="num">{stats.total}</td>
-                    <td className="num">{stats.avg_score === null ? '—' : Math.round(stats.avg_score)}</td>
-                    <td className="num">{stats.avg_opp === null ? '—' : Math.round(stats.avg_opp)}</td>
-                    <td className="num">{stats.immediate ?? 0}</td>
-                    <td className="num">{stats.high ?? 0}</td>
-                    <td className="num">{stats.medium ?? 0}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         </div>
       </section>
     </>

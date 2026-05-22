@@ -30,6 +30,25 @@ export default async function IntelligencePage() {
       />
 
       <section className="section">
+        <details className="disclosure">
+          <summary>
+            Sub-score legend
+            <span className="summary-meta">What each column means</span>
+          </summary>
+          <div className="disclosure-body" style={{ padding: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
+            <dl className="legend-grid">
+              <div><dt>Pain</dt><dd>Operational pain detected (broken site, manual workflows, missing CTA).</dd></div>
+              <div><dt>Readiness</dt><dd>Likelihood the business is active + currently buying (size, industry, working site).</dd></div>
+              <div><dt>Access</dt><dd>How reachable a real decision-maker is (named DM + extracted email beats forms).</dd></div>
+              <div><dt>Fit</dt><dd>How cleanly the lead maps onto a campaign we deliver.</dd></div>
+              <div><dt>Trust</dt><dd>Penalty score — enterprise / technical / existing-automation barriers.</dd></div>
+              <div><dt>Conf</dt><dd>How much we actually know (inspection ok, screenshots, verified signals).</dd></div>
+            </dl>
+          </div>
+        </details>
+      </section>
+
+      <section className="section">
         <StatStrip
           items={[
             { label: 'IMMEDIATE', value: counts.IMMEDIATE ?? 0, tone: 'danger' },

@@ -1,34 +1,134 @@
-// Overview — compact cross-cutting pipeline summary. Replaces the legacy
-// single-page dashboard. Heavy operational views (queue tables, lead
-// drawer, per-section disclosures) now live on their own routes; this
-// page only shows the throughput shape of the system and links to each.
+// Overview — the one-glance read of the pipeline. Three stages, one
+// bottleneck callout (if any), one strip of recent activity. Everything
+// else lives on its own dedicated page.
 
 import Link from 'next/link';
 import { PageHeader } from './_components/PageHeader';
 import { PipelineFlow } from './_components/PipelineFlow';
-import { StatStrip } from './_components/StatStrip';
 import { getOverviewData } from './_lib/pageData';
+import { getDb } from '../src/db/client';
 
 export const dynamic = 'force-dynamic';
+
+interface ActivityEvent {
+  when: string;
+  kind: 'discovery' | 'qualification' | 'review' | 'failure';
+  message: string;
+}
+
+function recentActivity(): ActivityEvent[] {
+  const db = getDb();
+  const events: ActivityEvent[] = [];
+
+  // Most recent discovery run
+  const lastDiscovery = db
+    .prepare(
+      `SELECT source, completed_at, valid_domains, raw_found FROM discovery_runs
+       WHERE completed_at IS NOT NULL
+       ORDER BY started_at DESC LIMIT 1`,
+    )
+    .get() as
+    | { source: string; completed_at: string; valid_domains: number; raw_found: number }
+    | undefined;
+  if (lastDiscovery) {
+    events.push({
+      when: lastDiscovery.completed_at,
+      kind: 'discovery',
+      message: `Discovery run — ${lastDiscovery.valid_domains} valid of ${lastDiscovery.raw_found} raw (${lastDiscovery.source})`,
+    });
+  }
+
+  // Most recent qualification queue transition
+  const lastQual = db
+    .prepare(
+      `SELECT status, domain, updated_at FROM qualification_queue
+       WHERE status IN ('PROMOTED','FAILED')
+       ORDER BY updated_at DESC LIMIT 1`,
+    )
+    .get() as { status: string; domain: string; updated_at: string } | undefined;
+  if (lastQual) {
+    events.push({
+      when: lastQual.updated_at,
+      kind: lastQual.status === 'FAILED' ? 'failure' : 'qualification',
+      message: `${lastQual.domain} — qualification ${lastQual.status.toLowerCase()}`,
+    });
+  }
+
+  // Most recent reviewer feedback
+  const lastReview = db
+    .prepare(
+      `SELECT lr.review_type, c.name, lr.created_at
+       FROM lead_reviews lr JOIN companies c ON c.id = lr.company_id
+       ORDER BY lr.created_at DESC LIMIT 1`,
+    )
+    .get() as { review_type: string; name: string; created_at: string } | undefined;
+  if (lastReview) {
+    events.push({
+      when: lastReview.created_at,
+      kind: 'review',
+      message: `${lastReview.name} — operator marked "${lastReview.review_type.replace(/_/g, ' ')}"`,
+    });
+  }
+
+  return events.sort((a, b) => b.when.localeCompare(a.when)).slice(0, 5);
+}
+
+function bottleneck(data: ReturnType<typeof getOverviewData>): {
+  message: string;
+  href: string;
+} | null {
+  const pending = data.qualification.byStatus.PENDING ?? 0;
+  const failed = data.qualification.byStatus.FAILED ?? 0;
+  if (failed > 0) {
+    return {
+      message: `${failed} qualification failure${failed === 1 ? '' : 's'} need investigation`,
+      href: '/queue',
+    };
+  }
+  if (pending > 30) {
+    return {
+      message: `${pending} domains waiting in the qualification queue`,
+      href: '/queue',
+    };
+  }
+  if (data.inspection.failed > 0 && data.inspection.failed > data.inspection.inspected / 2) {
+    return {
+      message: `${data.inspection.failed}/${data.inspection.inspected} inspections failing — source or network issue?`,
+      href: '/qualification',
+    };
+  }
+  return null;
+}
+
+function fmtRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.round(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  return `${d}d ago`;
+}
 
 export default async function OverviewPage() {
   const data = getOverviewData();
   const pending = data.qualification.byStatus.PENDING ?? 0;
   const processing = data.qualification.byStatus.PROCESSING ?? 0;
-  const promoted = data.qualification.byStatus.PROMOTED ?? 0;
-  const skipped = data.qualification.byStatus.SKIPPED ?? 0;
   const failed = data.qualification.byStatus.FAILED ?? 0;
+  const top = bottleneck(data);
+  const activity = recentActivity();
 
   return (
     <>
       <PageHeader
         title="Overview"
-        subtitle={`${data.totalCompanies} companies tracked · ${data.reviewQueue} in review queue`}
+        subtitle={`${data.totalCompanies} companies · ${data.reviewQueue} in review queue`}
       />
 
-      {/* ---- Pipeline flow ------------------------------------------- */}
+      {/* ---- Pipeline flow — 3 core stages -------------------------- */}
       <section className="section">
-        <h2 className="section-title">Pipeline</h2>
         <PipelineFlow
           stages={[
             {
@@ -38,19 +138,11 @@ export default async function OverviewPage() {
               sub: `${data.discovery.domainsToday} raw / 24h`,
             },
             {
-              href: '/queue',
-              label: 'Promotion queue',
-              value: pending,
-              sub: `${promoted} promoted · ${skipped} skipped`,
-              alert: failed > 0,
-            },
-            {
               href: '/qualification',
               label: 'Qualification',
-              value: processing > 0 ? `${processing} active` : 'idle',
-              sub: data.inspection.inspected > 0
-                ? `${data.inspection.inspected} inspected · ${data.inspection.failed} failed`
-                : 'no inspections yet',
+              value: pending + processing > 0 ? pending + processing : 'idle',
+              sub: `${pending} pending · ${processing} processing`,
+              alert: failed > 0,
             },
             {
               href: '/opportunities',
@@ -64,37 +156,22 @@ export default async function OverviewPage() {
         />
       </section>
 
-      {/* ---- Cross-cutting stats ------------------------------------- */}
-      <section className="section">
-        <h2 className="section-title">System health</h2>
-        <StatStrip
-          items={[
-            {
-              label: 'Discovery (24h)',
-              value: data.discovery.domainsToday,
-              foot: `${data.discovery.validToday} valid · ${data.discovery.totalRejected} rejected all-time`,
-            },
-            {
-              label: 'Queue depth',
-              value: pending + processing,
-              foot: `${pending} pending · ${processing} processing`,
-              tone: pending > 50 ? 'warning' : 'default',
-            },
-            {
-              label: 'Review queue',
-              value: data.reviewQueue,
-              foot: 'awaiting operator action',
-            },
-            {
-              label: 'AI cost today',
-              value: `$${data.ai.todayCostUsd.toFixed(2)}`,
-              foot: `of $${data.ai.dailyLimitUsd.toFixed(2)} cap`,
-            },
-          ]}
-        />
-      </section>
+      {/* ---- Bottleneck callout (only if there is one) ------------- */}
+      {top && (
+        <section className="section">
+          <Link href={top.href} className="bottleneck-callout">
+            <span className="bottleneck-icon" aria-hidden>
+              !
+            </span>
+            <span className="bottleneck-text">{top.message}</span>
+            <span className="bottleneck-arrow" aria-hidden>
+              →
+            </span>
+          </Link>
+        </section>
+      )}
 
-      {/* ---- Top opportunities --------------------------------------- */}
+      {/* ---- Top opportunities (compact) --------------------------- */}
       {data.topOpps.length > 0 && (
         <section className="section">
           <div className="section-head">
@@ -110,7 +187,6 @@ export default async function OverviewPage() {
                   <th>Score</th>
                   <th>Priority</th>
                   <th>Project</th>
-                  <th>Complexity</th>
                 </tr>
               </thead>
               <tbody>
@@ -123,12 +199,26 @@ export default async function OverviewPage() {
                       </span>
                     </td>
                     <td>{o.likely_project_type.replace(/_/g, ' ').toLowerCase()}</td>
-                    <td>{o.estimated_project_complexity.toLowerCase()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </section>
+      )}
+
+      {/* ---- Recent activity --------------------------------------- */}
+      {activity.length > 0 && (
+        <section className="section">
+          <h2 className="section-title">Recent activity</h2>
+          <ul className="activity-feed">
+            {activity.map((e, i) => (
+              <li key={i} className={`activity-item activity-${e.kind}`}>
+                <span className="activity-when">{fmtRelative(e.when)}</span>
+                <span className="activity-message">{e.message}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
     </>
