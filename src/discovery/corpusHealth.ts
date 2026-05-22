@@ -11,6 +11,9 @@
 
 import {
   classifyIndustryBalance,
+  DEFAULT_MAX_CONCENTRATION,
+  DEFAULT_PER_INDUSTRY_CAPS,
+  MIN_INDUSTRIES_PER_BATCH,
   type BalancingResult,
   type BalancingConfig,
 } from './industryBalancing';
@@ -114,16 +117,18 @@ export function computeCorpusHealth(
         diversityScores.opportunity * 0.2),
   );
 
+  const industryDistributionBuckets = toBuckets(industries);
   const warnings = buildWarnings(
     companies.length,
     industryBalance,
     sourceConcentration,
     config.alwaysFlagMissing ?? [],
+    industryDistributionBuckets,
   );
 
   return {
     total: companies.length,
-    industryDistribution: toBuckets(industries),
+    industryDistribution: industryDistributionBuckets,
     sourceDistribution: toBuckets(sources),
     campaignDistribution: toBuckets(campaigns),
     sizeDistribution: toBuckets(sizes),
@@ -214,6 +219,7 @@ function buildWarnings(
   balance: BalancingResult,
   source: SourceDistributionResult,
   alwaysFlagMissing: readonly string[],
+  industryDistribution: CorpusBucket[],
 ): CorpusWarning[] {
   const warnings: CorpusWarning[] = [];
 
@@ -224,6 +230,37 @@ function buildWarnings(
       message: 'No companies in corpus — run discovery to seed.',
     });
     return warnings;
+  }
+
+  // ---- Phase 1 rebalance — bypass minCorpusSize for the critical
+  //      overconcentration warning so the operator is told *now* that
+  //      calibration shouldn't trust this corpus yet. We check the cap
+  //      directly against the distribution, not through the planner's
+  //      minCorpusSize-gated classifier.
+  const overcapEntries = industryDistribution
+    .filter((b) => b.bucket !== '(unknown)')
+    .filter((b) => {
+      const cap = Math.min(
+        DEFAULT_MAX_CONCENTRATION,
+        DEFAULT_PER_INDUSTRY_CAPS[b.bucket] ?? DEFAULT_MAX_CONCENTRATION,
+      );
+      return b.share > cap;
+    });
+  const distinctIndustries = industryDistribution.filter(
+    (b) => b.bucket !== '(unknown)' && b.count > 0,
+  ).length;
+  if (overcapEntries.length > 0 || distinctIndustries < MIN_INDUSTRIES_PER_BATCH) {
+    const dominant = overcapEntries
+      .map((b) => `${b.bucket} ${pct(b.share)}`)
+      .join(', ');
+    const detail = overcapEntries.length > 0
+      ? `Dominant: ${dominant}.`
+      : `Only ${distinctIndustries} industry${distinctIndustries === 1 ? '' : 'ies'} in corpus.`;
+    warnings.push({
+      level: 'critical',
+      code: 'corpus_overconcentrated',
+      message: `Corpus is overconcentrated. Discovery should be rebalanced before calibration. ${detail}`,
+    });
   }
 
   for (const c of balance.classifications) {

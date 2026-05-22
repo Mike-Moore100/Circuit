@@ -14,12 +14,15 @@ import {
 } from '../../src/discovery/industryNormalizer';
 
 // Industries we always want to know about even with a small corpus.
-// Pulled from the Phase 1 Discovery Diversity brief.
+// Pulled from the Phase 1 Discovery Diversity brief + the rebalance pass —
+// these are the core operational SMBs we expect the corpus to cover.
 const ALWAYS_FLAG_MISSING = [
   'accountants',
   'recruitment agency',
-  'legal firm',
+  'legal services',
   'estate agents',
+  'care agency',
+  'cleaning services',
 ];
 
 export function getCorpusHealthReport(): CorpusHealthReport {

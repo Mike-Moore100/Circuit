@@ -75,13 +75,24 @@ describe('generateDiversifiedQueries', () => {
     expect(out[0].queryString).toBe('chartered accountants near Leeds');
   });
 
-  it('falls back to default industry template when none supplied', () => {
+  it('falls back to the industry-specific default template when none supplied', () => {
     const out = generateDiversifiedQueries({
       industries: ['accountants'],
       cities: ['Leeds'],
       defaultPerIndustry: 1,
     });
-    expect(out[0].queryString).toBe('accountants Leeds');
+    // Phase 1 rebalance — the default accountants template biases SERP
+    // toward independent practices rather than aggregator pages.
+    expect(out[0].queryString).toBe('chartered accountants Leeds');
+  });
+
+  it('falls back to bare "industry city" for industries with no preset template', () => {
+    const out = generateDiversifiedQueries({
+      industries: ['knitting circles'],
+      cities: ['Leeds'],
+      defaultPerIndustry: 1,
+    });
+    expect(out[0].queryString).toBe('knitting circles Leeds');
   });
 
   it('caps total queries at totalCap', () => {

@@ -35,24 +35,69 @@ describe('classifyIndustryBalance', () => {
     expect(out.deprioritize).toContain('marketing agency');
   });
 
-  it('forces every industry under minCorpusSize into missing / underrepresented', () => {
+  it('flags an industry over its cap as overrepresented even below minCorpusSize', () => {
+    // Phase 1 rebalance — hard caps are hard. A 100%-of-corpus
+    // industry is overrepresented regardless of how small the corpus
+    // is, otherwise discovery keeps adding more of it.
     const out = classifyIndustryBalance(
-      // 5 marketing agencies — below minCorpusSize default = 20.
       { 'marketing agency': 5 },
       { targets: ['accountants', 'marketing agency'] },
     );
     const mkt = out.classifications.find((c) => c.industry === 'marketing agency');
     const acc = out.classifications.find((c) => c.industry === 'accountants');
-    expect(mkt?.status).toBe('underrepresented');
+    expect(mkt?.status).toBe('overrepresented');
+    // Accountants still classified as 'missing' (count=0) — that part
+    // of the small-corpus logic still applies to within-cap industries.
     expect(acc?.status).toBe('missing');
   });
 
-  it('treats balanced industries as balanced once corpus passes minCorpusSize', () => {
+  it('treats a within-cap industry as underrepresented when corpus is small', () => {
+    // 5 accountants total — under minCorpusSize, but accountants share
+    // (100%) exceeds the 20% general cap. So this should be overrepresented.
+    // To exercise the "small corpus, under cap" path, use a small balanced
+    // distribution.
     const out = classifyIndustryBalance(
-      // 10 each — 33% share apiece, below the default 35% concentration ceiling.
-      { accountants: 10, 'marketing agency': 10, 'legal firm': 10 },
+      { accountants: 2, 'recruitment agency': 2, 'legal services': 2, 'estate agents': 2, 'care agency': 2 },
       {
-        targets: ['accountants', 'marketing agency', 'legal firm'],
+        targets: [
+          'accountants',
+          'recruitment agency',
+          'legal services',
+          'estate agents',
+          'care agency',
+        ],
+      },
+    );
+    // Each industry sits at 20% — exactly at the cap, so not overrepresented.
+    // Corpus total = 10 < minCorpusSize 20, so the small-corpus gate
+    // kicks in and marks them underrepresented to keep building.
+    for (const c of out.classifications) {
+      expect(c.status).toBe('underrepresented');
+    }
+  });
+
+  it('treats balanced industries as balanced once corpus passes minCorpusSize', () => {
+    // Six industries at ~16% each — under the Phase 1 rebalance cap
+    // (20%) and also under the marketing-specific 10% cap, so no
+    // industry is overrepresented.
+    const out = classifyIndustryBalance(
+      {
+        accountants: 4,
+        'recruitment agency': 4,
+        'legal services': 4,
+        'estate agents': 4,
+        'care agency': 4,
+        'cleaning services': 4,
+      },
+      {
+        targets: [
+          'accountants',
+          'recruitment agency',
+          'legal services',
+          'estate agents',
+          'care agency',
+          'cleaning services',
+        ],
         underrepresentedRatio: 0.5,
       },
     );

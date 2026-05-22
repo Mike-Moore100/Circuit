@@ -31,6 +31,11 @@ export const CANONICAL_INDUSTRIES = [
   'marketing agency',
   'web agency',
   'design studio',
+  // Phase 1 rebalance — non-digital operational SMBs.
+  'care agency',
+  'cleaning services',
+  'courier services',
+  'trades services',
 ] as const;
 
 export type CanonicalIndustry = (typeof CANONICAL_INDUSTRIES)[number];
@@ -140,6 +145,37 @@ const RULES: Rule[] = [
     industry: 'logistics company',
     pattern: /\b(logistics|freight|haulage|fulfillment|fulfilment|warehousing)\b/i,
     rule: 'logistics',
+    baseConfidence: 90,
+  },
+  // ---- Phase 1 rebalance — non-digital operational SMBs ---------
+  {
+    industry: 'care agency',
+    // "home care agency", "domiciliary care", "care provider", "care home"
+    pattern: /\b(home\s+care|domiciliary\s+care|care\s+(agency|provider|home|services?))\b/i,
+    rule: 'care_agency',
+    baseConfidence: 92,
+  },
+  {
+    industry: 'cleaning services',
+    // "commercial cleaning", "office cleaning", "cleaning company"
+    pattern: /\b(commercial\s+cleaning|office\s+cleaning|cleaning\s+(company|services|contractor))\b/i,
+    rule: 'cleaning',
+    baseConfidence: 92,
+  },
+  {
+    industry: 'courier services',
+    // "courier company", "same day courier", "delivery service"
+    pattern: /\b(courier(\s+(company|services))?|same[-\s]day\s+(courier|delivery)|delivery\s+(service|company))\b/i,
+    rule: 'courier',
+    baseConfidence: 90,
+  },
+  {
+    industry: 'trades services',
+    // "plumbing and heating", "electrical contractor", "construction firm",
+    // "trades business", "trade services". Specific enough to not pick
+    // up generic "construction" mentions inside professional services.
+    pattern: /\b(plumb(ing|er|ers)|heating\s+(engineer|contractor|company)|electrical\s+(contractor|services)|trade(s)?\s+(business|services)|building\s+contractor)\b/i,
+    rule: 'trades',
     baseConfidence: 90,
   },
   // ---- agencies — peer industries; specific before generic ---------

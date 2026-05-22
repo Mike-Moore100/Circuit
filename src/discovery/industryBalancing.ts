@@ -44,8 +44,14 @@ export interface BalancingConfig {
   // normalised to sum 1.0.
   targetShares?: Partial<Record<string, number>>;
   // An industry crossing this share threshold is overrepresented even
-  // if it sits within its targetShare. Defaults to 0.35.
+  // if it sits within its targetShare. Defaults to 0.20 (the Phase 1
+  // rebalance cap — no single industry above 20%).
   maxConcentration?: number;
+  // Per-industry hard caps that *override* maxConcentration when set.
+  // Use for peer industries we want to allow but never let dominate.
+  // Example: { 'marketing agency': 0.10 } keeps marketing agencies
+  // below 10% of the corpus even when the general cap is 20%.
+  perIndustryCap?: Partial<Record<string, number>>;
   // An industry below targetShare * underrepresentedRatio is flagged
   // underrepresented. Defaults to 0.5.
   underrepresentedRatio?: number;
@@ -55,6 +61,22 @@ export interface BalancingConfig {
   minCorpusSize?: number;
 }
 
+// Default per-industry caps applied across the system unless a
+// caller overrides them. Marketing/web/design agencies are eligible
+// for discovery but must never represent more than 10% of the corpus.
+export const DEFAULT_PER_INDUSTRY_CAPS: Record<string, number> = {
+  'marketing agency': 0.10,
+  'web agency': 0.10,
+  'design studio': 0.10,
+};
+
+// The Phase 1 rebalance baseline — surfaced as a constant so other
+// modules (planner, corpus health, CLI) can reference the same number.
+export const DEFAULT_MAX_CONCENTRATION = 0.20;
+// Minimum distinct target industries we want to see in a healthy
+// validation batch / corpus.
+export const MIN_INDUSTRIES_PER_BATCH = 5;
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -63,7 +85,8 @@ export function classifyIndustryBalance(
   config: BalancingConfig = {},
 ): BalancingResult {
   const targets = [...(config.targets ?? TARGET_INDUSTRIES)].sort();
-  const maxConcentration = config.maxConcentration ?? 0.35;
+  const maxConcentration = config.maxConcentration ?? DEFAULT_MAX_CONCENTRATION;
+  const perIndustryCap = { ...DEFAULT_PER_INDUSTRY_CAPS, ...(config.perIndustryCap ?? {}) };
   const underrepresentedRatio = config.underrepresentedRatio ?? 0.5;
   const minCorpusSize = config.minCorpusSize ?? 20;
 
@@ -75,6 +98,12 @@ export function classifyIndustryBalance(
     const count = counts[industry] ?? 0;
     const share = total > 0 ? count / total : 0;
     const targetShare = targetShares[industry] ?? 0;
+    // Tightest cap wins — if the operator set marketing-agency to 10%
+    // but general maxConcentration is 20%, marketing must obey 10%.
+    const effectiveCap = Math.min(
+      maxConcentration,
+      perIndustryCap[industry] ?? maxConcentration,
+    );
     classifications.push({
       industry,
       count,
@@ -85,7 +114,7 @@ export function classifyIndustryBalance(
         targetShare,
         count,
         total,
-        maxConcentration,
+        effectiveCap,
         underrepresentedRatio,
         minCorpusSize,
       ),
@@ -139,14 +168,19 @@ function classifyOne(
   underrepresentedRatio: number,
   minCorpusSize: number,
 ): IndustryStatus {
-  // With a small corpus we don't have enough signal to declare an
-  // overrepresentation. Treat every target with zero count as missing,
-  // everything else as underrepresented so the planner keeps building.
+  // Phase 1 rebalance — hard caps are hard. An industry above its cap
+  // is overrepresented even in a tiny corpus, otherwise a 100% one-
+  // industry corpus would keep getting MORE of that industry queried.
+  // (The planner uses this to zero out further queries; corpus health
+  // surfaces the warning.)
+  if (share > maxConcentration) return 'overrepresented';
+  // Below minCorpusSize we don't have enough total signal to declare
+  // anything outside the cap. Treat zero counts as missing, everything
+  // else as underrepresented so the planner aggressively builds volume.
   if (total < minCorpusSize) {
     if (count === 0) return 'missing';
     return 'underrepresented';
   }
-  if (share > maxConcentration) return 'overrepresented';
   if (count === 0) return 'missing';
   if (targetShare > 0 && share < targetShare * underrepresentedRatio) {
     return 'underrepresented';

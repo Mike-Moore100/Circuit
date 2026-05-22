@@ -16,45 +16,61 @@
 import type { DiscoveryQuery } from './discoveryTypes';
 
 // ---------------------------------------------------------------------------
-// Target pools — the brief's prioritised SMB industries. Marketing agency
-// stays in but is no longer privileged. Adding new entries here makes
-// them eligible for diversification immediately.
+// Target pools — operational SMBs first; "peer" agencies (marketing, web,
+// design) come last and carry hard caps elsewhere so they can't dominate.
+// Adding new entries here makes them eligible for diversification
+// immediately — no other planner changes required.
 // ---------------------------------------------------------------------------
 export const TARGET_INDUSTRIES = [
-  'accountants',
+  // ---- Operational / admin-heavy SMBs (the priority pool) ----------
   'recruitment agency',
-  'legal firm',
+  'accountants',
+  'bookkeeping services',
+  'legal services',
+  'conveyancing solicitors',
   'estate agents',
   'property management',
-  'consultants',
-  'bookkeeping services',
+  'payroll services',
+  'care agency',
+  'cleaning services',
+  'courier services',
+  'logistics company',
+  'trades services',
   'healthcare admin',
   'healthcare staffing agency',
-  'logistics company',
-  'payroll services',
-  'conveyancing solicitors',
-  'marketing agency', // still allowed, just no longer the default
+  'consultants',
+  // ---- Peer agencies — eligible but capped ------------------------
+  'marketing agency',
   'web agency',
+  'design studio',
 ] as const;
 
 // Industry-specific query templates. Some industries read better with
 // modifiers ("conveyancing solicitors" already implies a service).
 // Operators can override per-industry via the QueryGenerationConfig.
 const DEFAULT_INDUSTRY_TEMPLATES: Record<string, string> = {
-  accountants: 'accountants %CITY%',
+  // Operational SMBs — prefer the phrasing that biases the SERP toward
+  // independent local businesses rather than aggregator pages.
+  accountants: 'chartered accountants %CITY%',
   'recruitment agency': 'recruitment agency %CITY%',
-  'legal firm': 'law firm %CITY%',
+  'bookkeeping services': 'bookkeeping services %CITY%',
+  'legal services': 'solicitors firm %CITY%',
+  'conveyancing solicitors': 'conveyancing solicitors %CITY%',
   'estate agents': 'estate agents %CITY%',
   'property management': 'property management company %CITY%',
-  consultants: 'consultancy %CITY%',
-  'bookkeeping services': 'bookkeeping services %CITY%',
+  'payroll services': 'payroll bureau %CITY%',
+  'care agency': 'home care agency %CITY%',
+  'cleaning services': 'commercial cleaning company %CITY%',
+  'courier services': 'courier company %CITY%',
+  'logistics company': 'logistics company %CITY%',
+  'trades services': 'plumbing and heating company %CITY%',
   'healthcare admin': 'healthcare administration company %CITY%',
   'healthcare staffing agency': 'healthcare staffing agency %CITY%',
-  'logistics company': 'logistics company %CITY%',
-  'payroll services': 'payroll services %CITY%',
-  'conveyancing solicitors': 'conveyancing solicitors %CITY%',
+  consultants: 'management consultancy %CITY%',
+  // Peer agencies — kept available, just last in priority.
   'marketing agency': 'marketing agency %CITY%',
   'web agency': 'web design agency %CITY%',
+  'design studio': 'branding studio %CITY%',
 };
 
 export const DEFAULT_CITIES = [

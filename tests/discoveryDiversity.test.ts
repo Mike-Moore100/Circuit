@@ -34,16 +34,32 @@ describe('planDiversifiedDiscovery', () => {
   });
 
   it('reallocates a tier budget to the next tier when the tier has no industries', () => {
-    // No missing industries → planner reallocates missingShare to underrepresented.
+    // 5 industries at 20% share each — each at the cap, none over.
+    // No "missing" industries; everything is "underrepresented" under
+    // the small-corpus gate. The planner should still produce queries
+    // by reallocating the missing-tier budget down.
     const plan = planDiversifiedDiscovery({
       queryBudget: 10,
-      industryCounts: { accountants: 1 }, // very low count
-      industries: ['accountants'],
+      industryCounts: {
+        accountants: 2,
+        'recruitment agency': 2,
+        'legal services': 2,
+        'estate agents': 2,
+        'care agency': 2,
+      },
+      industries: [
+        'accountants',
+        'recruitment agency',
+        'legal services',
+        'estate agents',
+        'care agency',
+      ],
       missingShare: 0.6,
       underrepresentedShare: 0.3,
     });
     expect(plan.queries.length).toBeGreaterThan(0);
-    expect(plan.queries.every((q) => q.industry === 'accountants')).toBe(true);
+    const industries = new Set(plan.queries.map((q) => q.industry));
+    expect(industries.size).toBe(5);
   });
 
   it('respects the query budget', () => {

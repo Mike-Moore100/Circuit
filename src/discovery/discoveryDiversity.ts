@@ -13,6 +13,7 @@
 
 import {
   classifyIndustryBalance,
+  MIN_INDUSTRIES_PER_BATCH,
   type BalancingConfig,
   type IndustryClassification,
 } from './industryBalancing';
@@ -46,6 +47,12 @@ export interface DiversityPlannerConfig {
   missingShare?: number;
   // Same idea for underrepresented. Defaults to 0.3.
   underrepresentedShare?: number;
+  // Phase 1 rebalance — minimum distinct industries the planner is
+  // required to cover in a single batch. Defaults to 5. Set 1 to
+  // disable. When the eligible (non-overrepresented) industry pool is
+  // smaller than this, the planner still emits whatever it can but
+  // surfaces a `minIndustriesUnmet` flag so the caller can warn.
+  minIndustries?: number;
 }
 
 export interface DiversityPlan {
@@ -54,6 +61,13 @@ export interface DiversityPlan {
   quotaPerIndustry: Record<string, number>;
   // Diagnostic info: which industries got what status.
   classifications: IndustryClassification[];
+  // Distinct industries covered by the emitted queries.
+  industriesCovered: number;
+  // True when the planner couldn't cover minIndustries — the caller
+  // should surface this as a warning. Common cause: every operational
+  // industry is overrepresented (won't happen with a fresh corpus)
+  // or the queryBudget is too small.
+  minIndustriesUnmet: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +130,36 @@ export function planDiversifiedDiscovery(
     }
   }
 
+  // Min-industries floor — guarantee at least N distinct industries get
+  // one query each before we let any single industry pile up. We do this
+  // by reserving 1 query per industry up to `minIndustries`, then
+  // distributing whatever's left through the existing tiered allocation.
+  const minIndustries = config.minIndustries ?? MIN_INDUSTRIES_PER_BATCH;
+  const eligibleIndustries = [
+    ...tiers.missing,
+    ...tiers.underrepresented,
+    ...tiers.balanced,
+  ];
+  // Take from the front (missing first, then under, then balanced) so
+  // the reservation honours priority order.
+  const reservedCount = Math.min(minIndustries, eligibleIndustries.length, budget);
+  for (let i = 0; i < reservedCount; i++) {
+    const ind = eligibleIndustries[i];
+    quotaPerIndustry[ind] = Math.max(1, quotaPerIndustry[ind] ?? 0);
+  }
+  // The reservation may have pushed us past budget — trim the
+  // surplus from the *largest* quota first so the floor stays intact.
+  let allocated = Object.values(quotaPerIndustry).reduce((s, n) => s + n, 0);
+  while (allocated > budget) {
+    const sorted = Object.entries(quotaPerIndustry)
+      .filter(([, n]) => n > 1)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    if (sorted.length === 0) break;
+    const [ind] = sorted[0];
+    quotaPerIndustry[ind] -= 1;
+    allocated -= 1;
+  }
+
   const queryConfig: QueryGenerationConfig = {
     industries: Object.keys(quotaPerIndustry).sort(),
     cities: config.cities,
@@ -127,10 +171,13 @@ export function planDiversifiedDiscovery(
     defaultPerIndustry: 0, // anything not in the quota map gets nothing
   };
   const queries = generateDiversifiedQueries(queryConfig);
+  const industriesCovered = new Set(queries.map((q) => q.industryTag)).size;
 
   return {
     queries,
     quotaPerIndustry,
     classifications: balance.classifications,
+    industriesCovered,
+    minIndustriesUnmet: industriesCovered < Math.min(minIndustries, eligibleIndustries.length),
   };
 }
