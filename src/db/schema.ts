@@ -231,4 +231,42 @@ CREATE TABLE IF NOT EXISTS opportunity_intelligence (
 
 CREATE INDEX IF NOT EXISTS opp_intel_score_idx     ON opportunity_intelligence(opportunity_score DESC);
 CREATE INDEX IF NOT EXISTS opp_intel_priority_idx  ON opportunity_intelligence(human_attention_priority);
+
+-- Phase 11: massive cheap discovery layer. raw_discoveries is the wide
+-- top-of-funnel table; validated unique rows get promoted into companies.
+CREATE TABLE IF NOT EXISTS discovery_runs (
+  id            TEXT PRIMARY KEY,
+  source        TEXT NOT NULL,
+  started_at    TEXT NOT NULL,
+  completed_at  TEXT,
+  raw_found     INTEGER NOT NULL DEFAULT 0,
+  valid_domains INTEGER NOT NULL DEFAULT 0,
+  deduped       INTEGER NOT NULL DEFAULT 0,
+  rejected      INTEGER NOT NULL DEFAULT 0,
+  errors_json   TEXT
+);
+
+CREATE INDEX IF NOT EXISTS discovery_runs_started_at_idx ON discovery_runs(started_at DESC);
+
+CREATE TABLE IF NOT EXISTS raw_discoveries (
+  id                 TEXT PRIMARY KEY,
+  run_id             TEXT REFERENCES discovery_runs(id) ON DELETE CASCADE,
+  source             TEXT NOT NULL,
+  business_name      TEXT NOT NULL,
+  raw_url            TEXT NOT NULL,
+  extracted_domain   TEXT,
+  title              TEXT,
+  snippet            TEXT,
+  location           TEXT,
+  phone              TEXT,
+  discovered_at      TEXT NOT NULL,
+  validation_status  TEXT NOT NULL,
+  validation_reason  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS raw_discoveries_domain_idx     ON raw_discoveries(extracted_domain);
+CREATE INDEX IF NOT EXISTS raw_discoveries_run_idx        ON raw_discoveries(run_id);
+CREATE INDEX IF NOT EXISTS raw_discoveries_source_idx     ON raw_discoveries(source);
+CREATE INDEX IF NOT EXISTS raw_discoveries_status_idx     ON raw_discoveries(validation_status);
+CREATE INDEX IF NOT EXISTS raw_discoveries_discovered_idx ON raw_discoveries(discovered_at DESC);
 `;

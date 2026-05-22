@@ -151,6 +151,101 @@ export default async function DashboardPage({
         )}
       </header>
 
+      {/* ============ Discovery (collapsed) ============ */}
+      <section className="section" id="discovery">
+        <details className="disclosure">
+          <summary>
+            Discovery
+            <span className="summary-meta">
+              {data.discovery.totalValid} valid · {data.discovery.totalDeduped} dup · {data.discovery.totalRejected} rej · last 24h: {data.discovery.domainsToday} raw
+            </span>
+          </summary>
+          <div className="disclosure-body" style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            {/* Top-line throughput */}
+            <div className="discovery-strip">
+              <div className="discovery-stat">
+                <span className="discovery-stat-label">Valid (24h)</span>
+                <span className="discovery-stat-value">{data.discovery.validToday}</span>
+                <span className="discovery-stat-foot">
+                  of {data.discovery.domainsToday} raw ·{' '}
+                  {data.discovery.validationPassRateToday !== null
+                    ? `${Math.round(data.discovery.validationPassRateToday * 100)}% pass`
+                    : '—'}
+                </span>
+              </div>
+              <div className="discovery-stat">
+                <span className="discovery-stat-label">All time valid</span>
+                <span className="discovery-stat-value">{data.discovery.totalValid}</span>
+                <span className="discovery-stat-foot">{data.discovery.totalRuns} runs</span>
+              </div>
+              <div className="discovery-stat">
+                <span className="discovery-stat-label">Deduped</span>
+                <span className="discovery-stat-value">{data.discovery.totalDeduped}</span>
+                <span className="discovery-stat-foot">
+                  {data.discovery.totalRawFound > 0
+                    ? `${Math.round((data.discovery.totalDeduped / data.discovery.totalRawFound) * 100)}% of raw`
+                    : '—'}
+                </span>
+              </div>
+              <div className="discovery-stat">
+                <span className="discovery-stat-label">Rejected</span>
+                <span className="discovery-stat-value">{data.discovery.totalRejected}</span>
+                <span className="discovery-stat-foot">parking · aggregator · dead</span>
+              </div>
+            </div>
+
+            {/* By source */}
+            {Object.keys(data.discovery.bySource).length > 0 && (
+              <div>
+                <h3 className="section-title" style={{ fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>By source</h3>
+                <table className="runs-table">
+                  <thead>
+                    <tr>
+                      <th>Source</th>
+                      <th>Valid</th>
+                      <th>Rejected</th>
+                      <th>Duplicate</th>
+                      <th>Pass rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(data.discovery.bySource)
+                      .sort((a, b) => b[1].valid - a[1].valid)
+                      .map(([src, s]) => {
+                        const total = s.valid + s.rejected + s.deduped;
+                        return (
+                          <tr key={src}>
+                            <td><span className="tag">{src}</span></td>
+                            <td className="num">{s.valid}</td>
+                            <td className="num">{s.rejected}</td>
+                            <td className="num">{s.deduped}</td>
+                            <td className="num">{total > 0 ? `${Math.round((s.valid / total) * 100)}%` : '—'}</td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Top failures */}
+            {data.discovery.topFailures.length > 0 && (
+              <div>
+                <h3 className="section-title" style={{ fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Top rejection reasons</h3>
+                <ul className="reason-list">
+                  {data.discovery.topFailures.map((f) => (
+                    <li key={f.reason} className="reason neg">
+                      <span className="delta">{f.count}</span>
+                      <span className="label">{f.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </details>
+      </section>
+
       {/* ============ Pipeline diagnostics (collapsed by default) ============ */}
       <section className="section" id="diagnostics">
         <details className="disclosure">

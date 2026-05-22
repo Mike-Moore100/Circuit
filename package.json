@@ -23,6 +23,8 @@
     "debug:evidence": "tsx scripts/debugEvidence.ts",
     "debug:intelligence": "tsx scripts/debugIntelligence.ts",
     "debug:learning": "tsx scripts/debugLearning.ts",
+    "debug:discovery": "tsx scripts/debugDiscovery.ts",
+    "run:discovery": "tsx scripts/runDiscoveryCli.ts",
     "db:reset": "tsx scripts/resetDb.ts",
     "test": "vitest run",
     "test:watch": "vitest"

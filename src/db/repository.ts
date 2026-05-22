@@ -589,6 +589,219 @@ export function listOpportunityIntelligence(
   return db.prepare(sql).all(...args) as OpportunityIntelligenceRow[];
 }
 
+// ---------------------------------------------------------------------------
+// Phase 11 — Discovery (top-of-funnel)
+// ---------------------------------------------------------------------------
+export interface DiscoveryRunRow {
+  id: string;
+  source: string;
+  started_at: string;
+  completed_at: string | null;
+  raw_found: number;
+  valid_domains: number;
+  deduped: number;
+  rejected: number;
+  errors_json: string | null;
+}
+
+export interface RawDiscoveryRow {
+  id: string;
+  run_id: string | null;
+  source: string;
+  business_name: string;
+  raw_url: string;
+  extracted_domain: string | null;
+  title: string | null;
+  snippet: string | null;
+  location: string | null;
+  phone: string | null;
+  discovered_at: string;
+  validation_status: string;
+  validation_reason: string | null;
+}
+
+export function insertDiscoveryRun(
+  input: { source: string; startedAt: string },
+  db: Database = getDb(),
+): string {
+  const id = randomUUID();
+  db.prepare(
+    `INSERT INTO discovery_runs (id, source, started_at) VALUES (?, ?, ?)`,
+  ).run(id, input.source, input.startedAt);
+  return id;
+}
+
+export function updateDiscoveryRunStats(
+  input: {
+    id: string;
+    completedAt: string;
+    rawFound: number;
+    validDomains: number;
+    deduped: number;
+    rejected: number;
+    errors: string[];
+  },
+  db: Database = getDb(),
+): void {
+  db.prepare(
+    `UPDATE discovery_runs
+       SET completed_at  = ?,
+           raw_found     = ?,
+           valid_domains = ?,
+           deduped       = ?,
+           rejected      = ?,
+           errors_json   = ?
+     WHERE id = ?`,
+  ).run(
+    input.completedAt,
+    input.rawFound,
+    input.validDomains,
+    input.deduped,
+    input.rejected,
+    JSON.stringify(input.errors),
+    input.id,
+  );
+}
+
+export function insertRawDiscovery(
+  input: {
+    runId: string;
+    source: string;
+    businessName: string;
+    rawUrl: string;
+    extractedDomain: string | null;
+    title: string | null;
+    snippet: string | null;
+    location: string | null;
+    phone: string | null;
+    discoveredAt: string;
+    validationStatus: string;
+    validationReason: string | null;
+  },
+  db: Database = getDb(),
+): void {
+  db.prepare(
+    `INSERT INTO raw_discoveries
+       (id, run_id, source, business_name, raw_url, extracted_domain, title,
+        snippet, location, phone, discovered_at, validation_status, validation_reason)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    randomUUID(),
+    input.runId,
+    input.source,
+    input.businessName,
+    input.rawUrl,
+    input.extractedDomain,
+    input.title,
+    input.snippet,
+    input.location,
+    input.phone,
+    input.discoveredAt,
+    input.validationStatus,
+    input.validationReason,
+  );
+}
+
+export function listDiscoveryRuns(
+  db: Database = getDb(),
+  limit = 20,
+): DiscoveryRunRow[] {
+  return db
+    .prepare(
+      `SELECT * FROM discovery_runs ORDER BY started_at DESC LIMIT ?`,
+    )
+    .all(limit) as DiscoveryRunRow[];
+}
+
+export function getDiscoveryStats(db: Database = getDb()): {
+  totalRuns: number;
+  totalRawFound: number;
+  totalValid: number;
+  totalDeduped: number;
+  totalRejected: number;
+  bySource: Record<string, { runs: number; valid: number; rejected: number; deduped: number }>;
+  validationFailures: Record<string, number>;
+  domainsToday: number;
+  validToday: number;
+} {
+  const runs = db
+    .prepare('SELECT * FROM discovery_runs')
+    .all() as DiscoveryRunRow[];
+  const totalRuns = runs.length;
+  let totalRawFound = 0;
+  let totalValid = 0;
+  let totalDeduped = 0;
+  let totalRejected = 0;
+  const bySource: Record<string, { runs: number; valid: number; rejected: number; deduped: number }> = {};
+  for (const r of runs) {
+    totalRawFound += r.raw_found;
+    totalValid += r.valid_domains;
+    totalDeduped += r.deduped;
+    totalRejected += r.rejected;
+    // source field is comma-joined connector names — split for the breakdown
+    for (const s of r.source.split(',').filter(Boolean)) {
+      if (!bySource[s]) bySource[s] = { runs: 0, valid: 0, rejected: 0, deduped: 0 };
+      bySource[s].runs += 1;
+      // Splitting the totals across sources is approximate when multiple
+      // connectors ran in the same run; the per-source breakdown below
+      // from raw_discoveries gives the accurate split.
+    }
+  }
+  const perSource = db
+    .prepare(
+      `SELECT source AS s,
+              SUM(CASE WHEN validation_status = 'valid' THEN 1 ELSE 0 END) AS valid,
+              SUM(CASE WHEN validation_status = 'invalid' THEN 1 ELSE 0 END) AS rejected,
+              SUM(CASE WHEN validation_status = 'duplicate' THEN 1 ELSE 0 END) AS deduped
+       FROM raw_discoveries
+       GROUP BY source`,
+    )
+    .all() as Array<{ s: string; valid: number; rejected: number; deduped: number }>;
+  for (const row of perSource) {
+    if (!bySource[row.s]) bySource[row.s] = { runs: 0, valid: 0, rejected: 0, deduped: 0 };
+    bySource[row.s].valid = row.valid;
+    bySource[row.s].rejected = row.rejected;
+    bySource[row.s].deduped = row.deduped;
+  }
+
+  const failures = db
+    .prepare(
+      `SELECT COALESCE(validation_reason, 'unknown') AS reason, COUNT(*) AS n
+       FROM raw_discoveries
+       WHERE validation_status = 'invalid'
+       GROUP BY reason
+       ORDER BY n DESC
+       LIMIT 12`,
+    )
+    .all() as Array<{ reason: string; n: number }>;
+  const validationFailures: Record<string, number> = {};
+  for (const f of failures) validationFailures[f.reason] = f.n;
+
+  // Today's volume — counts every raw row discovered in the last 24h, plus
+  // those that ended up valid.
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const today = db
+    .prepare(
+      `SELECT COUNT(*) AS n,
+              SUM(CASE WHEN validation_status = 'valid' THEN 1 ELSE 0 END) AS v
+       FROM raw_discoveries
+       WHERE discovered_at >= ?`,
+    )
+    .get(since) as { n: number; v: number };
+
+  return {
+    totalRuns,
+    totalRawFound,
+    totalValid,
+    totalDeduped,
+    totalRejected,
+    bySource,
+    validationFailures,
+    domainsToday: today.n ?? 0,
+    validToday: today.v ?? 0,
+  };
+}
+
 export function getEvidenceStats(db: Database = getDb()): {
   companiesWithEvidence: number;
   totalEvidenceRows: number;

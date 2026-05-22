@@ -336,6 +336,42 @@ code {
    ============================================================ */
 /* Overview strip CSS deleted — replaced by the inline .topbar-stats line. */
 
+/* Discovery throughput strip — sits inside the collapsed Discovery section. */
+.discovery-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+}
+.discovery-stat {
+  padding: 10px var(--space-3);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.discovery-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+.discovery-stat-value {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.discovery-stat-foot {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Stacked content inside the diagnostics disclosure */
 .diagnostics-row {
   display: grid;

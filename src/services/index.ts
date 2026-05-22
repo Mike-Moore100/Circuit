@@ -7,3 +7,4 @@ export * from './contactDiscoveryService';
 export * from './evidenceService';
 export * from './intelligenceService';
 export * from './seedService';
+export * from './discoveryService';

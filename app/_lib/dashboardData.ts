@@ -4,11 +4,13 @@ import {
   getAiAnalysisStats,
   getContactRoutesForCompany,
   getContactsForCompany,
+  getDiscoveryStats,
   getEvidenceForCompany,
   getInspectionStats,
   getLatestReviewByCompany,
   getOpportunityIntelligence,
   getRecentSourceRuns,
+  listDiscoveryRuns,
   listOpportunityIntelligence,
 } from '../../src/db/repository';
 import type { OpportunityIntelligence } from '../../src/intelligence/intelligenceTypes';
@@ -284,6 +286,31 @@ export interface DashboardData {
   aiByCompany: Record<string, AiAnalysisPanel>;
   ai: AiOverview;
   validation: ValidationOverview;
+  // Phase 11 — top-of-funnel discovery throughput
+  discovery: DiscoveryOverview;
+}
+
+export interface DiscoveryOverview {
+  totalRuns: number;
+  totalRawFound: number;
+  totalValid: number;
+  totalDeduped: number;
+  totalRejected: number;
+  domainsToday: number;
+  validToday: number;
+  validationPassRateToday: number | null;
+  bySource: Record<string, { runs: number; valid: number; rejected: number; deduped: number }>;
+  topFailures: Array<{ reason: string; count: number }>;
+  recentRuns: Array<{
+    id: string;
+    source: string;
+    startedAt: string;
+    completedAt: string | null;
+    rawFound: number;
+    validDomains: number;
+    deduped: number;
+    rejected: number;
+  }>;
 }
 
 // Loaded per-lead (only for the selected drawer lead) to avoid bloating the
@@ -674,5 +701,37 @@ export async function getDashboardData(): Promise<DashboardData> {
       reviewTotals,
       reviewByCompany,
     },
+    discovery: buildDiscoveryOverview(db),
+  };
+}
+
+function buildDiscoveryOverview(db: ReturnType<typeof getDb>): DiscoveryOverview {
+  const stats = getDiscoveryStats(db);
+  const recent = listDiscoveryRuns(db, 8);
+  return {
+    totalRuns: stats.totalRuns,
+    totalRawFound: stats.totalRawFound,
+    totalValid: stats.totalValid,
+    totalDeduped: stats.totalDeduped,
+    totalRejected: stats.totalRejected,
+    domainsToday: stats.domainsToday,
+    validToday: stats.validToday,
+    validationPassRateToday:
+      stats.domainsToday > 0 ? stats.validToday / stats.domainsToday : null,
+    bySource: stats.bySource,
+    topFailures: Object.entries(stats.validationFailures)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([reason, count]) => ({ reason, count })),
+    recentRuns: recent.map((r) => ({
+      id: r.id,
+      source: r.source,
+      startedAt: r.started_at,
+      completedAt: r.completed_at,
+      rawFound: r.raw_found,
+      validDomains: r.valid_domains,
+      deduped: r.deduped,
+      rejected: r.rejected,
+    })),
   };
 }
