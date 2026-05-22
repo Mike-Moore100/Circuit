@@ -48,9 +48,17 @@ function domain(url: string | null): string | null {
   }
 }
 
-// Which operator tags appear as the *primary* quick-action buttons on the
-// card. The remaining ones live in the popover under "More". Hick's law:
-// four is the upper bound for instant choice without slowing the operator.
+// Phase 1 Live Validation — the commercial validation row sits above the
+// throughput row because "would I contact this?" is the fastest, most
+// useful operator judgement and feeds the calibration loop directly.
+const VALIDATION_ACTIONS: OperatorReviewType[] = [
+  'would_contact',
+  'would_not_contact',
+  'strong_pain',
+];
+
+// Throughput row — same four shipped in v1. These survive because they
+// answer "now what?" once an operator has decided would_contact.
 const PRIMARY_QUICK_ACTIONS: OperatorReviewType[] = [
   'likely_high_value',
   'likely_fast_close',
@@ -58,16 +66,22 @@ const PRIMARY_QUICK_ACTIONS: OperatorReviewType[] = [
   'ignore',
 ];
 
+// Everything else lives behind "More" so the default card stays scannable.
 const SECONDARY_QUICK_ACTIONS: OperatorReviewType[] = [
+  'high_commercial_potential',
+  'low_commercial_potential',
+  'weak_pain',
   'wrong_campaign',
   'high_trust_barrier',
   'needs_manual_investigation',
 ];
 
-// Sanity check we didn't drift the two arrays apart from OPERATOR_REVIEW_TYPES.
-// Caught at module load — cheaper than a test for catching a typo.
+// Sanity check we didn't drift the action arrays apart from
+// OPERATOR_REVIEW_TYPES. Caught at module load — cheaper than a test
+// for catching a typo.
 const _allOperatorActionsCovered = (() => {
   const covered = new Set<string>([
+    ...VALIDATION_ACTIONS,
     ...PRIMARY_QUICK_ACTIONS,
     ...SECONDARY_QUICK_ACTIONS,
   ]);
@@ -214,6 +228,24 @@ export function OpportunityCard({
         </div>
       )}
 
+      {/* ---- Commercial weakness strip (positioning gaps) ----------- */}
+      {intel && intel.commercialWeaknesses.length > 0 && (
+        <div className="opp-card-weakness" aria-label="Commercial weaknesses">
+          <span className="opp-card-section-label">Commercial gap</span>
+          <div className="opp-card-whynow-chips">
+            {intel.commercialWeaknesses.map((w) => (
+              <span
+                key={w.kind}
+                className={`weakness-chip weakness-${w.kind}`}
+                title={w.detail}
+              >
+                {w.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ---- Commercial reasoning strip (text-heavy) -------------- */}
       <div className="opp-card-reasoning">
         {intel?.topOpportunityReason && (
@@ -287,6 +319,27 @@ export function OpportunityCard({
           ))}
         </div>
       )}
+
+      {/* ---- Commercial validation row (always visible) ----------- */}
+      <div className="opp-card-validation-row" aria-label="Commercial validation">
+        <span className="opp-card-section-label">Validate</span>
+        {VALIDATION_ACTIONS.map((t) => {
+          const active = operatorTags.has(t);
+          return (
+            <button
+              key={t}
+              type="button"
+              className={`btn btn-sm opp-validation-btn${active ? ' opp-validation-active' : ''} opp-validation-${t}`}
+              onClick={() => toggleTag(t)}
+              disabled={pending || busyAction === t}
+              title={REVIEW_HINT[t]}
+              data-quick-action={t}
+            >
+              {REVIEW_LABEL[t]}
+            </button>
+          );
+        })}
+      </div>
 
       {/* ---- Quick actions ---------------------------------------- */}
       <footer className="opp-card-actions">

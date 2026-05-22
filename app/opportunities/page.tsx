@@ -12,6 +12,7 @@ import {
   getIntelligenceForLead,
   getIntelligenceSummariesByCompany,
   getOperatorTagsByCompany,
+  getOutcomesForLead,
 } from '../_lib/dashboardData';
 import { LeadDrawer } from '../_components/LeadDrawer';
 import { OpportunityHelp } from '../_components/OpportunityHelp';
@@ -35,10 +36,22 @@ const ALL_CAMPAIGNS: Campaign[] = [
   'REJECT',
 ];
 
+// Phase 1 Live Validation — supported Top N slices. URL `?top=25|50|100`.
+// Anything else falls back to "all". Pre-sorted by opportunity score
+// (with finalScore as tiebreak so leads without intelligence don't
+// silently float to the top).
+const TOP_N_VALUES = [25, 50, 100] as const;
+type TopN = (typeof TOP_N_VALUES)[number];
+
+function parseTop(raw: string | undefined): TopN | null {
+  const n = raw ? Number(raw) : NaN;
+  return (TOP_N_VALUES as readonly number[]).includes(n) ? (n as TopN) : null;
+}
+
 export default async function OpportunitiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ lead?: string; campaign?: string }>;
+  searchParams: Promise<{ lead?: string; campaign?: string; top?: string }>;
 }) {
   const params = await searchParams;
   const data = await getDashboardData();
@@ -47,10 +60,21 @@ export default async function OpportunitiesPage({
   const contactRollups = getContactRollupsByCompany();
   const selectedLeadId = params.lead ?? null;
   const campaignFilter = params.campaign ?? null;
+  const topN = parseTop(params.top);
 
-  const visibleRows = campaignFilter
-    ? data.reviewQueue.filter((r) => r.primaryCampaign === campaignFilter)
-    : data.reviewQueue;
+  // Pre-sort by opportunity score (intelligence-aware ranking),
+  // breaking ties with finalScore.
+  const sortedQueue = [...data.reviewQueue].sort((a, b) => {
+    const aScore = intelligenceByCompany[a.companyId]?.opportunityScore ?? 0;
+    const bScore = intelligenceByCompany[b.companyId]?.opportunityScore ?? 0;
+    if (bScore !== aScore) return bScore - aScore;
+    return b.finalScore - a.finalScore;
+  });
+
+  const campaignFiltered = campaignFilter
+    ? sortedQueue.filter((r) => r.primaryCampaign === campaignFilter)
+    : sortedQueue;
+  const visibleRows = topN ? campaignFiltered.slice(0, topN) : campaignFiltered;
 
   // Build the list items the OpportunityList renders. We do the joining
   // here so the client component stays a thin rendering layer.
@@ -85,12 +109,12 @@ export default async function OpportunitiesPage({
         subtitle={`${items.length} in review · ${immediateCount} immediate · ${highCount} high attention`}
       />
 
-      {/* ---- Campaign filter strip + help -------------------------- */}
+      {/* ---- Filter strips + help ---------------------------------- */}
       <section className="section">
         <div className="filter-strip-row">
           <div className="filter-strip">
             <Link
-              href="/opportunities"
+              href={topN ? `/opportunities?top=${topN}` : '/opportunities'}
               className={`filter-chip${!campaignFilter ? ' filter-chip-active' : ''}`}
               scroll={false}
             >
@@ -99,10 +123,12 @@ export default async function OpportunitiesPage({
             {ALL_CAMPAIGNS.map((c) => {
               const count = data.campaignCounts[c] ?? 0;
               if (count === 0) return null;
+              const query = new URLSearchParams({ campaign: c });
+              if (topN) query.set('top', String(topN));
               return (
                 <Link
                   key={c}
-                  href={`/opportunities?campaign=${c}`}
+                  href={`/opportunities?${query.toString()}`}
                   className={`filter-chip${campaignFilter === c ? ' filter-chip-active' : ''}`}
                   scroll={false}
                 >
@@ -113,6 +139,33 @@ export default async function OpportunitiesPage({
             })}
           </div>
           <OpportunityHelp />
+        </div>
+        {/* Top N strip — preserves the active campaign so the slice
+           composes with whatever filter is already on. */}
+        <div className="filter-strip filter-strip-top" style={{ marginTop: 8 }}>
+          <Link
+            href={
+              campaignFilter ? `/opportunities?campaign=${campaignFilter}` : '/opportunities'
+            }
+            className={`filter-chip${topN === null ? ' filter-chip-active' : ''}`}
+            scroll={false}
+          >
+            All <span className="filter-chip-count">{campaignFiltered.length}</span>
+          </Link>
+          {TOP_N_VALUES.map((n) => {
+            const q = new URLSearchParams({ top: String(n) });
+            if (campaignFilter) q.set('campaign', campaignFilter);
+            return (
+              <Link
+                key={n}
+                href={`/opportunities?${q.toString()}`}
+                className={`filter-chip${topN === n ? ' filter-chip-active' : ''}`}
+                scroll={false}
+              >
+                Top {n}
+              </Link>
+            );
+          })}
         </div>
       </section>
 
@@ -140,6 +193,7 @@ export default async function OpportunitiesPage({
             items={items}
             selectedId={selectedLeadId}
             campaignFilter={campaignFilter}
+            topN={topN}
           />
         )}
       </section>
@@ -154,6 +208,7 @@ export default async function OpportunitiesPage({
           contacts={getContactsForLead(selectedLead.companyId)}
           evidence={getEvidenceForLead(selectedLead.companyId)}
           intelligence={getIntelligenceForLead(selectedLead.companyId)}
+          outcomes={getOutcomesForLead(selectedLead.companyId)}
         />
       )}
     </>

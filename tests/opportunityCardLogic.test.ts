@@ -71,6 +71,7 @@ function makeIntel(
     strongestEvidence: 'Multiple service pages + contact form',
     strongestPainSignal: 'Manual onboarding language',
     likelyBuyer: 'Founder · Jane Smith',
+    commercialWeaknesses: [],
     ...overrides,
   };
 }

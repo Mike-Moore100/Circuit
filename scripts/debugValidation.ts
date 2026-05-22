@@ -1,125 +1,149 @@
-// Print everything an operator needs to read scoring quality at a glance.
+// debug:validation — Phase 1 Live Validation terminal view. Answers the
+// only question that matters at this phase: "is the opportunity
+// intelligence layer actually surfacing leads the operator wants to
+// contact?"
+//
+// Reads the same source of truth as /validation (operatorAgreement +
+// commercialWeakness + outcome distribution) so the two surfaces never
+// disagree. Scoring-calibration debug lives in `npm run debug:calibration`.
 //
 //   npm run debug:validation
-//
-import { closeDb, getDb } from '../src/db/client';
-import {
-  computeCampaignMetrics,
-  computeReviewTotals,
-  computeSourceQuality,
-  computeTopReasons,
-} from '../src/validation/metrics';
-import { detectCandidateFalseRejects } from '../src/validation/falseRejectDetector';
-import { getDashboardData } from '../app/_lib/dashboardData';
+//   npm run debug:validation -- --limit 10
 
-function pct(n: number | null): string {
-  if (n === null) return '—';
-  return `${(n * 100).toFixed(0)}%`;
+import { closeDb } from '../src/db/client';
+import { getValidationData } from '../app/_lib/validationData';
+
+function pad(s: string, n: number): string {
+  return s.length >= n ? s.slice(0, n) : s + ' '.repeat(n - s.length);
+}
+function rpad(n: number | string, w = 3): string {
+  return String(n).padStart(w);
+}
+function pct(rate: number | null): string {
+  if (rate === null) return '—';
+  return `${Math.round(rate * 100)}%`;
 }
 
-async function main() {
-  const db = getDb();
-  // Use the dashboardData loader so we get the same ReviewQueueRow shape
-  // the UI uses — important for the false-reject detector.
-  const data = await getDashboardData();
-
-  console.log('Circuit — validation summary');
-  console.log('============================');
+function header(title: string) {
   console.log('');
+  console.log(title);
+  console.log('-'.repeat(title.length));
+}
 
-  const metrics = computeCampaignMetrics(db);
-  console.log('Campaign metrics');
+interface MiniLead {
+  opportunityScore: number;
+  company: string;
+  attentionPriority: string;
+  trustBarrier: number;
+  operationalPain: number;
+  approved: boolean;
+  rejected: boolean;
+  latestOutcome: string | null;
+}
+
+function leadRow(l: MiniLead): string {
+  const verdict = l.approved ? '✓' : l.rejected ? '✗' : ' ';
+  const outcome = l.latestOutcome ? l.latestOutcome.toLowerCase().replace(/_/g, ' ') : '';
+  return `  ${rpad(l.opportunityScore, 3)}  ${pad(l.company, 38)}  ${pad(
+    l.attentionPriority,
+    9,
+  )}  ${rpad(l.trustBarrier, 3)}  ${rpad(l.operationalPain, 3)}  ${verdict}  ${outcome}`;
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  let limit = 10;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--limit' && args[i + 1]) {
+      const v = Number(args[i + 1]);
+      if (Number.isFinite(v)) limit = v;
+      i++;
+    }
+  }
+
+  const data = getValidationData();
+  const m = data.metrics;
+
+  console.log('Circuit — debug:validation');
+  console.log('==========================');
+  console.log('');
+  console.log(`reviewed leads        : ${m.totalReviewed}`);
+  console.log(`high-score reviewed   : ${m.totalHighScore}`);
+  console.log(`low-score reviewed    : ${m.totalLowScore}`);
+  console.log(`agreement rate        : ${pct(m.operatorAgreementRate)}`);
+  console.log(`disagreement rate     : ${pct(m.operatorDisagreementRate)}`);
   console.log(
-    '  campaign'.padEnd(24) +
-      'total'.padStart(7) +
-      'avg'.padStart(6) +
-      'rev'.padStart(6) +
-      'correct'.padStart(9) +
-      'fr%'.padStart(7) +
-      'fp%'.padStart(7),
+    `false positive rate   : ${pct(m.falsePositiveRate)} (${m.highScoreRejected}/${m.totalHighScore})`,
   );
-  for (const m of metrics) {
-    console.log(
-      `  ${m.campaign.padEnd(22)}${m.total.toString().padStart(7)}${m.avgFinalScore.toString().padStart(6)}${m.reviewedTotal.toString().padStart(6)}${pct(m.correctRate).padStart(9)}${pct(m.falseRejectRate).padStart(7)}${pct(m.falsePositiveRate).padStart(7)}`,
-    );
-  }
-  console.log('');
+  console.log(
+    `false negative rate   : ${pct(m.falseNegativeRate)} (${m.lowScoreApproved}/${m.totalLowScore})`,
+  );
+  console.log(
+    `ranking confidence    : ${
+      m.rankingConfidence === null ? '— (need 5+ reviews)' : `${m.rankingConfidence}/100`
+    }`,
+  );
 
-  const totals = computeReviewTotals(db);
-  console.log('Reviewer feedback totals');
-  for (const [k, v] of Object.entries(totals)) {
-    if (v > 0) console.log(`  ${k.padEnd(22)} ${v}`);
-  }
-  if (Object.values(totals).every((v) => v === 0)) {
-    console.log('  (no reviews recorded yet — use the dashboard buttons)');
-  }
-  console.log('');
+  // 1) Top-ranked real leads
+  header('1. Top-ranked real leads');
+  console.log(`  ${pad('opp', 3)}  ${pad('company', 38)}  ${pad('att', 9)}  trust  pain  v  outcome`);
+  for (const l of data.topRanked.slice(0, limit)) console.log(leadRow(l));
 
-  const sq = computeSourceQuality(db);
-  if (sq.length > 0) {
-    console.log('Source quality');
-    console.log(
-      '  source'.padEnd(28) +
-        'total'.padStart(7) +
-        'avg'.padStart(6) +
-        'inspFail'.padStart(11) +
-        'strong'.padStart(8),
-    );
-    for (const s of sq) {
-      console.log(
-        `  ${s.source.padEnd(26)}${s.totalLeads.toString().padStart(7)}${s.avgFinalScore.toString().padStart(6)}${pct(s.inspectionFailureRate).padStart(11)}${s.strongOpportunities.toString().padStart(8)}`,
-      );
-    }
-    console.log('');
+  // 2) Highest operator agreement
+  header('2. Highest operator-approved leads');
+  if (data.highestApproved.length === 0) {
+    console.log('  (no approvals yet — mark a few leads "Would contact" on /opportunities)');
+  } else {
+    for (const l of data.highestApproved.slice(0, limit)) console.log(leadRow(l));
   }
 
-  console.log('Top opportunities');
-  for (const row of data.reviewQueue.slice(0, 8)) {
-    console.log(
-      `  ${row.finalScore.toString().padStart(3)}  ${row.primaryCampaign.padEnd(22)}  ${row.company.slice(0, 36)}`,
-    );
+  // 3) Strongest commercial opportunities (= top conversion opportunities)
+  header('3. Strongest commercial opportunities (high opp + weak onboarding)');
+  if (data.conversionOpportunities.length === 0) {
+    console.log('  (no high-opp leads with weak onboarding flow detected)');
+  } else {
+    for (const l of data.conversionOpportunities.slice(0, limit)) console.log(leadRow(l));
   }
-  console.log('');
 
-  console.log('Lowest-confidence leads in actionable campaigns');
-  const lowest = data.reviewQueue
-    .slice()
-    .sort((a, b) => a.finalScore - b.finalScore)
-    .slice(0, 5);
-  for (const row of lowest) {
-    console.log(
-      `  ${row.finalScore.toString().padStart(3)}  ${row.primaryCampaign.padEnd(22)}  ${row.company.slice(0, 36)}  ${row.primaryReason.slice(0, 50)}`,
-    );
+  // 4) Trust barrier patterns
+  header('4. Highest trust barriers');
+  if (data.highestTrustBarrier.every((l) => l.trustBarrier === 0)) {
+    console.log('  (no trust barrier scoring yet — need inspector signals first)');
+  } else {
+    for (const l of data.highestTrustBarrier.slice(0, limit)) console.log(leadRow(l));
   }
-  console.log('');
 
-  const candidates = detectCandidateFalseRejects([...data.reviewQueue, ...data.rejected]);
-  console.log(`Candidate false rejects / sanity checks (${candidates.length})`);
-  for (const c of candidates.slice(0, 10)) {
-    console.log(`  ${c.primaryCampaign.padEnd(22)}  ${c.company.slice(0, 30).padEnd(30)}  ${c.flagReason}`);
-    for (const e of c.evidence.slice(0, 3)) console.log(`      - ${e}`);
+  // 5) False positive patterns — high-score rejected
+  header('5. False positive patterns (high score · rejected)');
+  if (data.scoreVsAgreement.highScoreRejected.length === 0) {
+    console.log('  (no false positives — every high-score lead the operator reviewed was approved)');
+  } else {
+    for (const l of data.scoreVsAgreement.highScoreRejected.slice(0, limit)) console.log(leadRow(l));
   }
-  console.log('');
 
-  const reasons = computeTopReasons(db);
-  console.log('Top positive reasons by campaign');
-  for (const [campaign, rs] of Object.entries(reasons.byCampaign)) {
-    if (rs.length === 0) continue;
-    console.log(`  ${campaign}`);
-    for (const r of rs) console.log(`    ${r.count.toString().padStart(3)}  +${r.totalDelta}  ${r.label}`);
-  }
-  console.log('');
-  if (reasons.trueRejections.length > 0) {
-    console.log('Top true-rejection reasons');
-    for (const r of reasons.trueRejections) {
-      console.log(`  ${r.count.toString().padStart(3)}  ${r.label}`);
+  // 6) Commercial pain patterns
+  header('6. Commercial pain patterns (across the corpus)');
+  if (data.commercialPainPatterns.length === 0) {
+    console.log('  (no patterns detected yet)');
+  } else {
+    for (const p of data.commercialPainPatterns) {
+      console.log(`  ${pad(p.label, 32)}  ${rpad(p.count, 3)} companies`);
     }
   }
 
+  // 7) Outcome distribution
+  header('7. Outcome distribution');
+  const dist = Object.entries(data.outcomeDistribution).sort((a, b) => b[1] - a[1]);
+  if (dist.length === 0) {
+    console.log('  (no outcomes recorded yet — record some on /opportunities → drawer)');
+  } else {
+    for (const [type, count] of dist) {
+      console.log(`  ${pad(type, 22)}  ${rpad(count, 3)}`);
+    }
+  }
+
+  console.log('');
   closeDb();
 }
 
-main().catch((err) => {
-  console.error('[debug:validation] failed:', err);
-  process.exit(1);
-});
+main();

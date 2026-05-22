@@ -10,6 +10,7 @@ import type {
 import type { OpportunityIntelligence } from '../../src/intelligence/intelligenceTypes';
 import { ReviewActions } from './ReviewActions';
 import { LeadReviewActions } from './LeadReviewActions';
+import { OutcomeTracker, type OutcomeRow } from './OutcomeTracker';
 
 interface Props {
   lead: ReviewQueueRow;
@@ -19,6 +20,7 @@ interface Props {
   contacts: LeadContactBundle;
   evidence: LeadEvidenceSummary | null;
   intelligence: OpportunityIntelligence | null;
+  outcomes: OutcomeRow[];
 }
 
 function emailStatusLabel(status: string | null, hasEmail: boolean): string {
@@ -105,6 +107,7 @@ export function LeadDrawer({
   contacts,
   evidence,
   intelligence,
+  outcomes,
 }: Props) {
   const positiveReasons = lead.reasons.filter((r) => r.delta >= 0);
   const negativeReasons = [
@@ -551,6 +554,15 @@ export function LeadDrawer({
             )}
           </section>
         )}
+
+        <section className="drawer-section">
+          <h3 className="drawer-label">Outcome tracking</h3>
+          <p className="drawer-section-hint">
+            Record what actually happened. This is a tracking log only —
+            nothing is sent.
+          </p>
+          <OutcomeTracker companyId={lead.companyId} outcomes={outcomes} />
+        </section>
 
         <section className="drawer-section">
           <LeadReviewActions

@@ -7,8 +7,10 @@ import {
   getDiscoveryStats,
   getEvidenceForCompany,
   getInspectionStats,
+  getLatestOutcomeByCompany,
   getLatestReviewByCompany,
   getOpportunityIntelligence,
+  getOutcomesForCompany,
   getReviewTagsByCompany,
   getQualificationQueueStats,
   getRecentSourceRuns,
@@ -18,6 +20,10 @@ import {
 } from '../../src/db/repository';
 import type { OpportunityIntelligence } from '../../src/intelligence/intelligenceTypes';
 import { topWhyNow, type WhyNowSignal } from '../../src/intelligence/whyNowReasoning';
+import {
+  topCommercialWeaknesses,
+  type CommercialWeakness,
+} from '../../src/intelligence/commercialWeakness';
 import { CAMPAIGN_VALUES, CAMPAIGN_LABEL } from '../../src/scoring/campaignTypes';
 import type { Campaign } from '../../src/scoring/campaignTypes';
 import {
@@ -238,6 +244,10 @@ export interface IntelligenceRowSummary {
   // detected role + name. If AI analysis exists for the company it can
   // override this in the card layer; the summary stays AI-free.
   likelyBuyer: string | null;
+  // Phase 1 Live Validation — top commercial weaknesses surfaced as chips
+  // on the card. Distinct from technical issues; focused on commercial
+  // positioning (unclear services, weak onboarding, generic positioning).
+  commercialWeaknesses: CommercialWeakness[];
 }
 
 // Rollup of "is there a usable contact path per company". Cheap aggregate
@@ -257,6 +267,33 @@ export function getOperatorTagsByCompany(): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const [companyId, tags] of map) {
     out[companyId] = [...tags];
+  }
+  return out;
+}
+
+// Per-lead outcome rows for the drawer's outcome tracker. Returns the
+// full history (DESC), so the timeline component can render every event.
+export function getOutcomesForLead(
+  companyId: string,
+): Array<{ id: string; outcomeType: string; notes: string | null; createdAt: string }> {
+  return getOutcomesForCompany(companyId, getDb()).map((r) => ({
+    id: r.id,
+    outcomeType: r.outcome_type,
+    notes: r.notes,
+    createdAt: r.created_at,
+  }));
+}
+
+// Latest outcome per company — used by the card / list view to show
+// "where is this lead in the pipeline?". Keyed by companyId.
+export function getLatestOutcomesByCompany(): Record<
+  string,
+  { outcomeType: string; createdAt: string }
+> {
+  const map = getLatestOutcomeByCompany(getDb());
+  const out: Record<string, { outcomeType: string; createdAt: string }> = {};
+  for (const [companyId, row] of map) {
+    out[companyId] = { outcomeType: row.outcome_type, createdAt: row.created_at };
   }
   return out;
 }
@@ -327,6 +364,16 @@ export function getIntelligenceSummariesByCompany(): Record<string, Intelligence
   const rows = listOpportunityIntelligence(db, { limit: 500 });
   const out: Record<string, IntelligenceRowSummary> = {};
   const buyerByCompany = getLikelyBuyerByCompany();
+
+  // We need company name + industry for commercial weakness detection
+  // (generic positioning, weak differentiation). Single bulk query
+  // keeps the cost O(1) DB calls regardless of how many leads.
+  const companyMeta = db
+    .prepare('SELECT id, name, industry FROM companies')
+    .all() as Array<{ id: string; name: string; industry: string | null }>;
+  const metaById = new Map(
+    companyMeta.map((c) => [c.id, { name: c.name, industry: c.industry }]),
+  );
 
   // We need verified signals + contactability for the why-now computation.
   // Single-query approach keeps this O(1) DB calls instead of O(N).
@@ -403,6 +450,15 @@ export function getIntelligenceSummariesByCompany(): Record<string, Intelligence
       strongestEvidence: intelligence?.strongestSignals[0] ?? null,
       strongestPainSignal: intelligence?.operationalPain.signals[0] ?? null,
       likelyBuyer: buyerByCompany[r.company_id] ?? null,
+      commercialWeaknesses: topCommercialWeaknesses({
+        verifiedSignals: verified,
+        intelligence,
+        hasContactForm: formCompanyIds.has(r.company_id),
+        hasBookingLink: bookingCompanyIds.has(r.company_id),
+        hasWorkingWebsite,
+        companyName: metaById.get(r.company_id)?.name ?? null,
+        industry: metaById.get(r.company_id)?.industry ?? null,
+      }),
     };
   }
   return out;

@@ -98,6 +98,9 @@ const NAV: NavItemDef[] = [
   { href: '/opportunities', label: 'Opportunities', icon: icons.opportunities },
   { href: '/campaigns', label: 'Campaigns', icon: icons.campaigns },
   { href: '/review', label: 'Review', icon: icons.review },
+  // Phase 1 Live Validation — operator agreement + outcome tracking.
+  // Sits between Review (per-lead feedback) and Calibration (system tuning).
+  { href: '/validation', label: 'Validation', icon: icons.review },
   // Phase 14 — calibration sits between Review (where feedback is captured)
   // and Intelligence (where per-lead scoring is debugged).
   { href: '/calibration', label: 'Calibration', icon: icons.intelligence },

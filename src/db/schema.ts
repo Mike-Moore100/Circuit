@@ -174,6 +174,24 @@ CREATE TABLE IF NOT EXISTS lead_reviews (
 CREATE INDEX IF NOT EXISTS lead_reviews_company_idx ON lead_reviews(company_id);
 CREATE INDEX IF NOT EXISTS lead_reviews_type_idx    ON lead_reviews(review_type);
 
+-- Phase 1 Live Validation — commercial outcome tracking. Distinct from
+-- lead_reviews (which captures *judgement*: was the routing right?
+-- would I contact?). lead_outcomes captures *what actually happened*:
+-- did we contact, did they reply, did the conversation lead anywhere?
+-- This is intentionally just a tracking log — no outreach automation
+-- writes to it.
+CREATE TABLE IF NOT EXISTS lead_outcomes (
+  id           TEXT PRIMARY KEY,
+  company_id   TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  outcome_type TEXT NOT NULL,
+  notes        TEXT,
+  created_at   TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS lead_outcomes_company_idx ON lead_outcomes(company_id);
+CREATE INDEX IF NOT EXISTS lead_outcomes_type_idx    ON lead_outcomes(outcome_type);
+CREATE INDEX IF NOT EXISTS lead_outcomes_created_idx ON lead_outcomes(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS review_metrics (
   id          TEXT PRIMARY KEY,
   metric_type TEXT NOT NULL,

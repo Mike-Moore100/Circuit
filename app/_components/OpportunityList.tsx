@@ -34,15 +34,21 @@ interface Props {
   items: OpportunityListItem[];
   selectedId: string | null;
   campaignFilter: string | null;
+  topN: number | null;
 }
 
-function buildDetailHref(companyId: string, campaignFilter: string | null): string {
+function buildDetailHref(
+  companyId: string,
+  campaignFilter: string | null,
+  topN: number | null,
+): string {
   const params = new URLSearchParams({ lead: companyId });
   if (campaignFilter) params.set('campaign', campaignFilter);
+  if (topN) params.set('top', String(topN));
   return `/opportunities?${params.toString()}`;
 }
 
-export function OpportunityList({ items, selectedId, campaignFilter }: Props) {
+export function OpportunityList({ items, selectedId, campaignFilter, topN }: Props) {
   const router = useRouter();
   // The keyboard cursor is the *active* card the operator is moving
   // through. It's distinct from `selectedId` (which is the drawer
@@ -101,7 +107,7 @@ export function OpportunityList({ items, selectedId, campaignFilter }: Props) {
 
       if (intent.kind === 'open') {
         e.preventDefault();
-        router.push(buildDetailHref(active.row.companyId, campaignFilter), {
+        router.push(buildDetailHref(active.row.companyId, campaignFilter, topN), {
           scroll: false,
         });
         return;
@@ -160,7 +166,7 @@ export function OpportunityList({ items, selectedId, campaignFilter }: Props) {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [items, cursor, router, campaignFilter, selectedId]);
+  }, [items, cursor, router, campaignFilter, topN, selectedId]);
 
   if (items.length === 0) {
     return null;
@@ -174,7 +180,7 @@ export function OpportunityList({ items, selectedId, campaignFilter }: Props) {
           row={it.row}
           intel={it.intel}
           isSelected={idx === cursor}
-          detailHref={buildDetailHref(it.row.companyId, campaignFilter)}
+          detailHref={buildDetailHref(it.row.companyId, campaignFilter, topN)}
           operatorTags={new Set(it.operatorTags)}
           hasContact={it.hasContact}
           hasPhone={it.hasPhone}

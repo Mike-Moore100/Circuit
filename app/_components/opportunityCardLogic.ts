@@ -23,6 +23,10 @@ export const HOTKEY_ACTIONS: Record<string, OperatorReviewType | 'strong_opportu
   w: 'wrong_campaign',
   t: 'high_trust_barrier',
   m: 'needs_manual_investigation',
+  // Phase 1 Live Validation commercial-signal hotkeys.
+  c: 'would_contact',
+  n: 'would_not_contact',
+  p: 'strong_pain',
 };
 
 // Navigation key intents — what does this key do to the cursor?

@@ -31,6 +31,15 @@ export const OPERATOR_REVIEW_TYPES = [
   'likely_fast_close',
   'likely_high_value',
   'needs_manual_investigation',
+  // Phase 1 Live Validation — commercial validation signals. These are
+  // the "should I contact this?" judgements that feed the operator
+  // agreement metric and the calibration loop.
+  'would_contact',
+  'would_not_contact',
+  'high_commercial_potential',
+  'low_commercial_potential',
+  'strong_pain',
+  'weak_pain',
 ] as const;
 
 export const REVIEW_TYPES = [
@@ -56,6 +65,12 @@ export const REVIEW_LABEL: Record<ReviewType, string> = {
   likely_fast_close: 'Likely fast close',
   likely_high_value: 'Likely high value',
   needs_manual_investigation: 'Needs investigation',
+  would_contact: 'Would contact',
+  would_not_contact: 'Would not contact',
+  high_commercial_potential: 'High commercial potential',
+  low_commercial_potential: 'Low commercial potential',
+  strong_pain: 'Strong pain',
+  weak_pain: 'Weak pain',
 };
 
 // One-line tooltips shown on hover — explain what each rating means so
@@ -74,6 +89,12 @@ export const REVIEW_HINT: Record<ReviewType, string> = {
   likely_fast_close: 'Cheap to win — pursue immediately.',
   likely_high_value: 'Large potential project size if landed.',
   needs_manual_investigation: 'Worth a few minutes of manual research before deciding.',
+  would_contact: 'If I had time today, I would reach out to this lead.',
+  would_not_contact: 'Not worth reaching out to even if free.',
+  high_commercial_potential: 'Looks commercially valuable on this view.',
+  low_commercial_potential: 'Real lead, but commercially small.',
+  strong_pain: 'Visible commercial pain — they need something now.',
+  weak_pain: 'No real commercial pain visible.',
 };
 
 export function isCalibrationReview(type: string): type is CalibrationReviewType {

@@ -2401,6 +2401,31 @@ details.row-details > summary:hover { color: var(--text); }
   border-radius: var(--radius);
   border: 1px solid var(--border);
 }
+
+.opp-card-weakness {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.weakness-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff5e6;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.weakness-chip.weakness-unclear_service_structure { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+.weakness-chip.weakness-weak_onboarding_flow      { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
+.weakness-chip.weakness-generic_positioning       { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.weakness-chip.weakness-operational_immaturity    { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
+.weakness-chip.weakness-weak_differentiation      { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+.weakness-chip.weakness-weak_trust_signals        { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
 .opp-card-stat {
   display: flex;
   flex-direction: column;
@@ -2454,6 +2479,40 @@ details.row-details > summary:hover { color: var(--text); }
 .opp-tag.opp-tag-high_trust_barrier { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
 .opp-tag.opp-tag-needs_manual_investigation { background: var(--info-soft); color: var(--info); border-color: var(--info-border); }
 
+.opp-card-validation-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #f6f8ff;
+  border: 1px solid #c7d2fe;
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+.opp-validation-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 100ms ease, color 100ms ease, border-color 100ms ease;
+}
+.opp-validation-btn:hover { background: var(--bg-subtle); }
+.opp-validation-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.opp-validation-btn.opp-validation-active { color: var(--surface); border-color: transparent; }
+.opp-validation-btn.opp-validation-active.opp-validation-would_contact {
+  background: #047857;
+}
+.opp-validation-btn.opp-validation-active.opp-validation-would_not_contact {
+  background: var(--danger);
+}
+.opp-validation-btn.opp-validation-active.opp-validation-strong_pain {
+  background: #c2410c;
+}
+
 .opp-card-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2490,6 +2549,172 @@ details.row-details > summary:hover { color: var(--text); }
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* ============================================================
+   Phase 1 Live Validation — dashboard surfaces
+   ============================================================ */
+
+.validation-metric-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.vmetric {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vmetric-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+.vmetric-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.vmetric-sub { font-size: var(--text-xs); color: var(--text-muted); }
+.vmetric-danger     { border-color: var(--danger-border); background: var(--danger-soft); }
+.vmetric-warn       { border-color: var(--warning-border); background: var(--warning-soft); }
+.vmetric-confidence { border-color: #c7d2fe; background: #eef2ff; }
+
+.outcome-pill {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.outcome-pill.outcome-positive { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.outcome-pill.outcome-negative { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
+
+.vdot { font-size: 14px; line-height: 1; }
+.vdot-approved { color: #047857; }
+.vdot-rejected { color: var(--danger); }
+
+.validation-table th,
+.validation-table td { font-size: var(--text-xs); }
+
+.three-col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.panel-sub {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+.lead-mini-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-xs);
+}
+.lead-mini-list a { color: var(--text); text-decoration: none; }
+.lead-mini-list a:hover { color: var(--accent); }
+
+/* Outcome tracker — drawer surface for recording what actually happened
+   with a lead. Append-only timeline + a grid of outcome buttons. */
+.outcome-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.drawer-section-hint {
+  font-size: 11px;
+  color: var(--text-subtle);
+  margin: 0 0 8px;
+}
+.outcome-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.outcome-btn {
+  font-size: 11px;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  font-weight: 500;
+}
+.outcome-btn:hover { background: var(--bg-subtle); }
+.outcome-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.outcome-btn-positive { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+.outcome-btn-positive:hover { background: #d1fae5; }
+.outcome-btn-negative { border-color: var(--danger-border); background: var(--danger-soft); color: var(--danger); }
+.outcome-btn-negative:hover { background: #fee2e2; }
+.outcome-btn-neutral  { border-color: var(--border); background: var(--bg-subtle); color: var(--text-muted); }
+
+.outcome-notes {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--text);
+  resize: vertical;
+  background: var(--surface);
+}
+.outcome-notes:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+.outcome-timeline {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.outcome-row {
+  display: grid;
+  grid-template-columns: 70px auto 1fr 20px;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-xs);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+}
+.outcome-row-positive { border-color: #a7f3d0; background: #ecfdf5; }
+.outcome-row-negative { border-color: var(--danger-border); background: var(--danger-soft); }
+.outcome-when { color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+.outcome-type { color: var(--text); font-weight: 600; }
+.outcome-note { color: var(--text-muted); font-style: italic; }
+.outcome-undo {
+  background: none;
+  border: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  line-height: 1;
+}
+.outcome-undo:hover { color: var(--danger); }
 
 /* Drawer progressive-disclosure — used to hide debug-y panels by default
    so the operator gets the commercial narrative first and the raw data

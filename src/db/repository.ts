@@ -2043,6 +2043,109 @@ export function deleteReviewTag(
   return res.changes;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 1 Live Validation — lead_outcomes (commercial outcome tracking).
+// Append-only; multiple rows per company are expected.
+// ---------------------------------------------------------------------------
+export interface LeadOutcomeRow {
+  id: string;
+  company_id: string;
+  outcome_type: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface InsertLeadOutcomeInput {
+  companyId: string;
+  outcomeType: string;
+  notes?: string | null;
+}
+
+export function insertLeadOutcome(
+  input: InsertLeadOutcomeInput,
+  db: Database = getDb(),
+): LeadOutcomeRow {
+  const row: LeadOutcomeRow = {
+    id: randomUUID(),
+    company_id: input.companyId,
+    outcome_type: input.outcomeType,
+    notes: input.notes ?? null,
+    created_at: now(),
+  };
+  db.prepare(
+    `INSERT INTO lead_outcomes (id, company_id, outcome_type, notes, created_at)
+     VALUES (@id, @company_id, @outcome_type, @notes, @created_at)`,
+  ).run(row);
+  return row;
+}
+
+export function deleteLeadOutcome(
+  id: string,
+  db: Database = getDb(),
+): number {
+  return db.prepare('DELETE FROM lead_outcomes WHERE id = ?').run(id).changes;
+}
+
+export function getOutcomesForCompany(
+  companyId: string,
+  db: Database = getDb(),
+): LeadOutcomeRow[] {
+  return db
+    .prepare(
+      `SELECT * FROM lead_outcomes WHERE company_id = ?
+        ORDER BY created_at DESC`,
+    )
+    .all(companyId) as LeadOutcomeRow[];
+}
+
+export function listAllOutcomes(
+  db: Database = getDb(),
+  options: { limit?: number } = {},
+): LeadOutcomeRow[] {
+  const limit = options.limit ?? 200;
+  return db
+    .prepare(
+      `SELECT * FROM lead_outcomes ORDER BY created_at DESC LIMIT ?`,
+    )
+    .all(limit) as LeadOutcomeRow[];
+}
+
+export function getOutcomeDistribution(
+  db: Database = getDb(),
+): Record<string, number> {
+  const rows = db
+    .prepare(
+      `SELECT outcome_type, COUNT(*) AS n FROM lead_outcomes
+        GROUP BY outcome_type`,
+    )
+    .all() as Array<{ outcome_type: string; n: number }>;
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.outcome_type] = r.n;
+  return out;
+}
+
+// Latest outcome per company. Used by the drawer + the validation
+// dashboard to show "where is this lead in the pipeline right now?".
+export function getLatestOutcomeByCompany(
+  db: Database = getDb(),
+): Map<string, LeadOutcomeRow> {
+  const rows = db
+    .prepare(
+      `SELECT lo.* FROM lead_outcomes lo
+         JOIN (
+           SELECT company_id, MAX(created_at) AS created_at
+             FROM lead_outcomes
+            GROUP BY company_id
+         ) latest
+           ON latest.company_id = lo.company_id
+          AND latest.created_at = lo.created_at`,
+    )
+    .all() as LeadOutcomeRow[];
+  const map = new Map<string, LeadOutcomeRow>();
+  for (const r of rows) map.set(r.company_id, r);
+  return map;
+}
+
 export function countReviewsByType(
   db: Database = getDb(),
 ): Record<string, number> {
