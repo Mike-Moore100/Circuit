@@ -145,6 +145,19 @@ export function OpportunityCard({
       data-card-index={index}
       aria-selected={isSelected}
     >
+      {/* Whole-card click target. Lives behind everything else so the
+         operator can click anywhere on the card to open the drawer.
+         Interactive descendants (validation buttons, "Open" button,
+         the host link inside the title sub-line, applied operator tags)
+         all carry `position: relative` in CSS so they sit above this
+         overlay and remain individually clickable. */}
+      <Link
+        href={detailHref}
+        scroll={false}
+        className="opp-card-link-overlay"
+        aria-label={`Open ${row.company}`}
+        tabIndex={-1}
+      />
       <DecisionSummary
         lead={row}
         intel={intel}
