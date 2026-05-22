@@ -3139,18 +3139,26 @@ details.row-details > summary:hover { color: var(--text); }
    page. Sidebar is the operator's "where", SubNav is the operator's
    "what within where". Always present when the route belongs to a
    group; hides on Settings + any orphan route. */
-/* Thin tab strip — no group label / subtitle. The sidebar already
-   tells the operator which group they're in, and each page's
-   PageHeader carries title + subtitle. Doubling that here was the
-   "two headers stacked" problem. */
+/* Thin tab strip — full-bleed across the main content area. The
+   parent .app-main has 32px horizontal padding; we escape it with a
+   negative margin so the strip's surface + border-bottom span
+   edge-to-edge, then add the same 32px back on the inner padding so
+   the tabs still align with the page content below. */
 .section-subnav {
   display: flex;
   align-items: stretch;
   gap: 2px;
-  padding: 0 24px;
+  margin: 0 calc(-1 * var(--space-8));
+  padding: 0 var(--space-8);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-wrap: wrap;
+}
+@media (max-width: 960px) {
+  .section-subnav {
+    margin: 0 calc(-1 * var(--space-5));
+    padding: 0 var(--space-5);
+  }
 }
 .section-subnav-tab {
   position: relative;
@@ -3176,7 +3184,17 @@ details.row-details > summary:hover { color: var(--text); }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 24px 0;
+  /* Same full-bleed pattern as .section-subnav — banners are
+     layout-level alerts and should run edge-to-edge above the
+     content, not be inset inside the page padding. */
+  margin: 0 calc(-1 * var(--space-8));
+  padding: 12px var(--space-8) 0;
+}
+@media (max-width: 960px) {
+  .system-banners {
+    margin: 0 calc(-1 * var(--space-5));
+    padding: 12px var(--space-5) 0;
+  }
 }
 .system-banner {
   display: flex;
