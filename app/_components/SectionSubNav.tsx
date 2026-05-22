@@ -1,8 +1,10 @@
 'use client';
 
-// Renders the horizontal tab strip at the top of every group page.
-// Lives in the root layout, so individual pages don't need to know
-// about it — it picks the right group based on the current pathname.
+// Thin tab strip rendered at the top of every group page. The
+// sidebar already tells the operator which section they're in
+// (active highlight), and each page's own PageHeader carries the
+// title + subtitle — so this strip is JUST the tabs. No group
+// label, no group subtitle, no doubled-up heading.
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -21,22 +23,20 @@ export function SectionSubNav() {
   const active = matchTab(group, pathname, searchParams);
 
   return (
-    <div className="section-subnav" data-group={group.key}>
-      <div className="section-subnav-meta">
-        <span className="section-subnav-group-label">{group.label}</span>
-        <span className="section-subnav-subtitle">{group.subtitle}</span>
-      </div>
-      <nav className="section-subnav-tabs" aria-label={`${group.label} sub-navigation`}>
-        {group.tabs.map((tab) => (
-          <TabLink
-            key={tab.href}
-            group={group}
-            tab={tab}
-            isActive={active?.href === tab.href}
-          />
-        ))}
-      </nav>
-    </div>
+    <nav
+      className="section-subnav"
+      data-group={group.key}
+      aria-label={`${group.label} sub-navigation`}
+    >
+      {group.tabs.map((tab) => (
+        <TabLink
+          key={tab.href}
+          group={group}
+          tab={tab}
+          isActive={active?.href === tab.href}
+        />
+      ))}
+    </nav>
   );
 }
 

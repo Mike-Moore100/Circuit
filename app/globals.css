@@ -314,28 +314,28 @@ code {
    ============================================================ */
 .topbar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: var(--space-5);
-  padding: var(--space-5) 0 var(--space-4);
-  position: sticky;
-  top: 0;
+  padding: 28px 0 20px;
   background: var(--bg);
-  z-index: 5;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: var(--space-5);
+  margin-bottom: 12px;
 }
 .topbar-title h1 {
-  font-size: var(--text-lg);
+  /* Proper page title — confident size, the only "h1" in the
+     reading order. SubNav above is a tab strip, sidebar tells the
+     operator which section they're in. */
+  font-size: 26px;
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   margin: 0;
-  line-height: 1.2;
+  line-height: 1.15;
+  color: var(--text);
 }
 .topbar-stats {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 6px;
   font-variant-numeric: tabular-nums;
 }
 .topbar-alert { color: var(--warning); font-weight: 600; }
@@ -3139,41 +3139,22 @@ details.row-details > summary:hover { color: var(--text); }
    page. Sidebar is the operator's "where", SubNav is the operator's
    "what within where". Always present when the route belongs to a
    group; hides on Settings + any orphan route. */
+/* Thin tab strip — no group label / subtitle. The sidebar already
+   tells the operator which group they're in, and each page's
+   PageHeader carries title + subtitle. Doubling that here was the
+   "two headers stacked" problem. */
 .section-subnav {
   display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 14px 24px 0;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 24px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-wrap: wrap;
 }
-.section-subnav-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-}
-.section-subnav-group-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  color: var(--text-subtle);
-}
-.section-subnav-subtitle {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-.section-subnav-tabs {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-  flex-wrap: wrap;
-}
 .section-subnav-tab {
   position: relative;
-  padding: 8px 12px 14px;
+  padding: 10px 14px;
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-muted);
