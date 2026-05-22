@@ -170,7 +170,11 @@ export function OpportunityCard({
         mode="card"
       />
 
-      {/* Validation row — always visible Layer 1 action. */}
+      {/* Validation row. "Open" button removed — the whole card is now
+         a click target, so a separate Open is redundant. The three
+         validation buttons stay (they POST to /api/lead-review, they
+         aren't navigation). Each button calls stopPropagation so a
+         click on it doesn't accidentally open the drawer. */}
       <div className="opp-card-validation-row" aria-label="Commercial validation">
         <span className="opp-card-section-label">Validate</span>
         {VALIDATION_ACTIONS.map((t) => {
@@ -180,7 +184,10 @@ export function OpportunityCard({
               key={t}
               type="button"
               className={`btn btn-sm opp-validation-btn${active ? ' opp-validation-active' : ''} opp-validation-${t}`}
-              onClick={() => toggleTag(t)}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleTag(t);
+              }}
               disabled={pending || busyAction === t}
               title={REVIEW_HINT[t]}
               data-quick-action={t}
@@ -189,14 +196,6 @@ export function OpportunityCard({
             </button>
           );
         })}
-        <Link
-          href={detailHref}
-          scroll={false}
-          className="btn btn-sm btn-primary opp-card-open"
-          data-quick-action="open"
-        >
-          Open
-        </Link>
       </div>
 
       {/* Applied operator tags — visible Layer 1 because they're

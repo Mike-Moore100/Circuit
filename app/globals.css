@@ -2257,16 +2257,15 @@ details.row-details > summary:hover { color: var(--text); }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 16px 12px;
+  padding: 12px 14px 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+  gap: 8px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
   scroll-margin-top: 16px;
 }
 .opp-card:hover {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent-soft) 35%, var(--surface));
   cursor: pointer;
 }
 .opp-card-selected {
@@ -2274,24 +2273,28 @@ details.row-details > summary:hover { color: var(--text); }
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
-/* Full-card click overlay. Sits behind every other child so the
-   operator can click anywhere on the card to open the drawer.
-   Interactive descendants are lifted with z-index below so direct
-   clicks on buttons / links still hit them, not the overlay. */
+/* Full-card click overlay. Sits ABOVE the card's text (z:1) so a click
+   on the body actually navigates — when the overlay was below content,
+   the text intercepted clicks and the overlay only received clicks on
+   tiny gaps in padding. The few real interactive descendants
+   (validation buttons, applied tag chips, the host link in the sub-
+   line) lift back above the overlay so their own clicks still work. */
 .opp-card-link-overlay {
   position: absolute;
   inset: 0;
   border-radius: var(--radius);
-  z-index: 0;
+  z-index: 1;
   background: transparent;
 }
 .opp-card-link-overlay:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
-.opp-card > *:not(.opp-card-link-overlay) {
+.opp-card .opp-card-validation-row,
+.opp-card .opp-card-tags,
+.opp-card .decision-host {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 .opp-card-head {
   display: flex;
@@ -2870,7 +2873,7 @@ details.row-details > summary:hover { color: var(--text); }
 .decision-summary {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 .decision-head {
   display: flex;
@@ -2882,19 +2885,14 @@ details.row-details > summary:hover { color: var(--text); }
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
 .decision-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  /* Avatar is 28px on cards / 36px on drawer — keep the title row's
-     first line vertically centred against the avatar so a multi-pill
-     header doesn't sit visually higher than the company name. */
-  min-height: 28px;
 }
-.decision-summary-drawer .decision-title-row { min-height: 36px; }
 .decision-title {
   margin: 0;
   font-size: 16px;
@@ -2965,35 +2963,25 @@ details.row-details > summary:hover { color: var(--text); }
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
 .decision-row {
   display: grid;
   grid-template-columns: 130px minmax(0, 1fr);
-  gap: 12px;
-  /* `start` keeps a wrapping multi-line value flush against the label
-     instead of pushing the label down to the value's midline. */
-  align-items: start;
+  gap: 10px;
+  align-items: baseline;
   font-size: var(--text-xs);
-  line-height: 1.45;
+  line-height: 1.35;
 }
 .decision-row-label {
-  /* Match the value's line height so the label's text baseline lines
-     up cleanly with the first line of the value, not slightly above. */
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 600;
   color: var(--text-subtle);
-  line-height: 1.45;
-  /* Nudge down by the cap-height difference so the small-caps label
-     visually sits on the same line as the first value line. */
-  padding-top: 1px;
 }
 .decision-row-value {
   color: var(--text);
-  /* Allow long evidence / reason strings to wrap rather than overflow
-     the grid track. minmax(0, 1fr) above also defends against this. */
   overflow-wrap: anywhere;
 }
 .decision-row-pos   .decision-row-value { color: var(--text); }
