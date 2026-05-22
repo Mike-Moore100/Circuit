@@ -24,6 +24,7 @@
     "debug:evidence": "tsx scripts/debugEvidence.ts",
     "debug:intelligence": "tsx scripts/debugIntelligence.ts",
     "debug:opportunities": "tsx scripts/debugOpportunities.ts",
+    "debug:corpus": "tsx scripts/debugCorpus.ts",
     "debug:learning": "tsx scripts/debugLearning.ts",
     "debug:discovery": "tsx scripts/debugDiscovery.ts",
     "run:discovery": "tsx scripts/runDiscoveryCli.ts",

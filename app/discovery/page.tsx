@@ -3,8 +3,10 @@
 // the per-pipeline-run history moved to Sources.
 
 import Link from 'next/link';
+import { CorpusHealth } from '../_components/CorpusHealth';
 import { PageHeader } from '../_components/PageHeader';
 import { StatStrip } from '../_components/StatStrip';
+import { getCorpusHealthReport } from '../_lib/corpusHealthData';
 import { getDiscoveryPageData } from '../_lib/pageData';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +18,7 @@ function pct(n: number, total: number): string {
 
 export default async function DiscoveryPage() {
   const { stats } = getDiscoveryPageData();
+  const corpus = getCorpusHealthReport();
   const passRate24h = pct(stats.validToday, stats.domainsToday);
   const dedupeRate = pct(stats.totalDeduped, stats.totalRawFound);
 
@@ -64,6 +67,8 @@ export default async function DiscoveryPage() {
           </span>
         </Link>
       </section>
+
+      <CorpusHealth report={corpus} />
 
       {Object.keys(stats.bySource).length > 0 && (
         <section className="section">

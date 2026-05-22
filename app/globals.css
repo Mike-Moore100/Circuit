@@ -2551,6 +2551,150 @@ details.row-details > summary:hover { color: var(--text); }
 }
 
 /* ============================================================
+   Phase 1 Discovery Diversity — corpus health surface
+   ============================================================ */
+
+.corpus-health .section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.corpus-diversity {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.corpus-diversity-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.corpus-diversity-cap { font-size: var(--text-xs); color: var(--text-subtle); }
+
+.corpus-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.corpus-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.corpus-tile-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+.corpus-tile-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.corpus-tile-sub { font-size: var(--text-xs); color: var(--text-muted); }
+
+.corpus-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.corpus-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: var(--text-sm);
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+.corpus-warning-info { background: var(--info-soft); color: var(--info); border-color: var(--info-border); }
+.corpus-warning-warning { background: var(--warning-soft); color: var(--warning); border-color: var(--warning-border); }
+.corpus-warning-critical { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
+.corpus-warning-level {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.06);
+}
+
+.corpus-bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.corpus-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) 40px 40px;
+  gap: 8px;
+  align-items: center;
+  font-size: var(--text-xs);
+}
+.corpus-bar-label {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.corpus-bar-track {
+  position: relative;
+  height: 6px;
+  background: var(--bg-muted);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.corpus-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--info);
+  border-radius: 999px;
+}
+.corpus-bar-warn .corpus-bar-fill { background: var(--danger); }
+.corpus-bar-pos  .corpus-bar-fill { background: var(--success); }
+.corpus-bar-neg  .corpus-bar-fill { background: var(--danger); }
+.corpus-bar-count { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; color: var(--text); }
+.corpus-bar-share { font-variant-numeric: tabular-nums; color: var(--text-muted); text-align: right; }
+
+.corpus-flag-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.corpus-flag-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 60px 80px;
+  gap: 8px;
+  align-items: center;
+  font-size: var(--text-xs);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+}
+.corpus-flag-name { color: var(--text); }
+.corpus-flag-share { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; }
+.corpus-flag-target { font-variant-numeric: tabular-nums; color: var(--text-subtle); }
+
+/* ============================================================
    Phase 1 Live Validation — dashboard surfaces
    ============================================================ */
 
