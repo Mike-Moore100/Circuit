@@ -142,71 +142,70 @@ export function LeadDrawer({
 
       <div className="drawer-body">
         <section className="drawer-section">
-          <div className="drawer-score-row">
-            <div>
-              <div className="drawer-label">Campaign score</div>
-              <div className="drawer-score">{campaignScore}</div>
-              <div className="drawer-score-sub">
-                rule {lead.ruleScore} · intent {lead.intentScore} · final {lead.finalScore}
-              </div>
-            </div>
-            <div className={`score-bar ${campaign === 'REJECT' ? 'Reject' : 'A'}`} style={{ flex: 1, height: 8 }}>
-              <span className="fill" style={{ width: `${campaignScore}%` }} />
-            </div>
-          </div>
-          <p className="note" style={{ marginTop: 8 }}>
-            <strong>{lead.primaryReason}</strong>
-          </p>
+          {lead.primaryReason && (
+            <p className="note">
+              <strong>{lead.primaryReason}</strong>
+            </p>
+          )}
 
-          <div className="drawer-score-table" role="table" aria-label="All scoring stats">
-            <div className="drawer-score-row-item">
-              <span className="drawer-score-label">Rule score</span>
-              <div className="score-bar A" style={{ height: 6 }}>
-                <span className="fill" style={{ width: `${lead.ruleScore}%` }} />
-              </div>
-              <span className="drawer-score-value">{lead.ruleScore}</span>
-            </div>
-            <div className="drawer-score-row-item">
-              <span className="drawer-score-label">Intent score</span>
-              <div className="score-bar A" style={{ height: 6 }}>
-                <span className="fill" style={{ width: `${lead.intentScore}%` }} />
-              </div>
-              <span className="drawer-score-value">{lead.intentScore}</span>
-            </div>
-            <div className="drawer-score-row-item">
-              <span className="drawer-score-label">Final score</span>
-              <div className={`score-bar ${lead.priority}`} style={{ height: 6 }}>
-                <span className="fill" style={{ width: `${lead.finalScore}%` }} />
-              </div>
-              <span className="drawer-score-value">{lead.finalScore}</span>
-            </div>
-            <div className="drawer-score-divider" />
-            {CAMPAIGN_VALUES.map((c) => {
-              const s = lead.campaignScores[c] ?? 0;
-              const active = c === campaign;
-              return (
-                <div
-                  key={c}
-                  className={`drawer-score-row-item ${active ? 'active' : ''}`}
-                >
-                  <span className="drawer-score-label">
-                    <span className={`campaign-dot campaign-${c}`} />
-                    {CAMPAIGN_LABEL[c]}
-                  </span>
-                  <div className="score-bar" style={{ height: 6 }}>
-                    <span
-                      className="fill"
-                      style={{
-                        width: `${s}%`,
-                        background: `var(--campaign-${c.toLowerCase()})`,
-                      }}
-                    />
-                  </div>
-                  <span className="drawer-score-value">{s}</span>
+          {/* Single score table — rule / intent / final on top, per-campaign
+             below. The Opportunity Intelligence section underneath carries
+             the commercial-reasoning narrative, so we don't duplicate the
+             campaign-score-hero block any more. */}
+          <details className="drawer-collapsible">
+            <summary className="drawer-collapsible-summary">
+              Scoring breakdown ({lead.ruleScore} · {lead.intentScore} · {lead.finalScore})
+            </summary>
+            <div className="drawer-score-table" role="table" aria-label="All scoring stats">
+              <div className="drawer-score-row-item">
+                <span className="drawer-score-label">Rule score</span>
+                <div className="score-bar A" style={{ height: 6 }}>
+                  <span className="fill" style={{ width: `${lead.ruleScore}%` }} />
                 </div>
-              );
-            })}
-          </div>
+                <span className="drawer-score-value">{lead.ruleScore}</span>
+              </div>
+              <div className="drawer-score-row-item">
+                <span className="drawer-score-label">Intent score</span>
+                <div className="score-bar A" style={{ height: 6 }}>
+                  <span className="fill" style={{ width: `${lead.intentScore}%` }} />
+                </div>
+                <span className="drawer-score-value">{lead.intentScore}</span>
+              </div>
+              <div className="drawer-score-row-item">
+                <span className="drawer-score-label">Final score</span>
+                <div className={`score-bar ${lead.priority}`} style={{ height: 6 }}>
+                  <span className="fill" style={{ width: `${lead.finalScore}%` }} />
+                </div>
+                <span className="drawer-score-value">{lead.finalScore}</span>
+              </div>
+              <div className="drawer-score-divider" />
+              {CAMPAIGN_VALUES.map((c) => {
+                const s = lead.campaignScores[c] ?? 0;
+                const active = c === campaign;
+                return (
+                  <div
+                    key={c}
+                    className={`drawer-score-row-item ${active ? 'active' : ''}`}
+                  >
+                    <span className="drawer-score-label">
+                      <span className={`campaign-dot campaign-${c}`} />
+                      {CAMPAIGN_LABEL[c]}
+                    </span>
+                    <div className="score-bar" style={{ height: 6 }}>
+                      <span
+                        className="fill"
+                        style={{
+                          width: `${s}%`,
+                          background: `var(--campaign-${c.toLowerCase()})`,
+                        }}
+                      />
+                    </div>
+                    <span className="drawer-score-value">{s}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </details>
         </section>
 
         {intelligence && (
@@ -449,48 +448,61 @@ export function LeadDrawer({
 
         {signals.length > 0 && (
           <section className="drawer-section">
-            <h3 className="drawer-label">Verified website signals</h3>
-            <div className="signal-chips">
-              {signals.map((s) => {
-                const penalty =
-                  s.type === 'verified.website_failed' ||
-                  s.type === 'verified.has_ai_automation_language' ||
-                  s.type === 'verified.low_digital_maturity';
-                return (
-                  <span
-                    key={`${s.type}-${s.value}`}
-                    className={`signal-chip ${penalty ? 'neg' : 'pos'}`}
-                    title={s.value}
-                  >
-                    {shortenSignalType(s.type)}
-                  </span>
-                );
-              })}
-            </div>
+            <details className="drawer-collapsible">
+              <summary className="drawer-collapsible-summary">
+                Verified website signals ({signals.length})
+              </summary>
+              <div className="signal-chips" style={{ marginTop: 8 }}>
+                {signals.map((s) => {
+                  const penalty =
+                    s.type === 'verified.website_failed' ||
+                    s.type === 'verified.has_ai_automation_language' ||
+                    s.type === 'verified.low_digital_maturity';
+                  return (
+                    <span
+                      key={`${s.type}-${s.value}`}
+                      className={`signal-chip ${penalty ? 'neg' : 'pos'}`}
+                      title={s.value}
+                    >
+                      {shortenSignalType(s.type)}
+                    </span>
+                  );
+                })}
+              </div>
+            </details>
           </section>
         )}
 
-        <section className="drawer-section">
-          <h3 className="drawer-label">What worked</h3>
-          {positiveReasons.length === 0 ? (
-            <p className="note">No positive contributions recorded.</p>
-          ) : (
-            <ul className="reason-list">
-              {positiveReasons.map((r) => (
-                <ReasonRow key={`p-${r.code}`} r={r} kind="pos" />
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {negativeReasons.length > 0 && (
+        {/* Rule + intent reason lists live behind progressive disclosure —
+           the Opportunity Intelligence narrative above is the primary
+           commercial reasoning surface. */}
+        {(positiveReasons.length > 0 || negativeReasons.length > 0) && (
           <section className="drawer-section">
-            <h3 className="drawer-label">What pulled the score down</h3>
-            <ul className="reason-list">
-              {negativeReasons.map((r) => (
-                <ReasonRow key={`n-${r.code}`} r={r} kind="neg" />
-              ))}
-            </ul>
+            <details className="drawer-collapsible">
+              <summary className="drawer-collapsible-summary">
+                Raw scoring reasons ({positiveReasons.length} pos · {negativeReasons.length} neg)
+              </summary>
+              {positiveReasons.length > 0 && (
+                <>
+                  <h4 className="drawer-sublabel">What worked</h4>
+                  <ul className="reason-list">
+                    {positiveReasons.map((r) => (
+                      <ReasonRow key={`p-${r.code}`} r={r} kind="pos" />
+                    ))}
+                  </ul>
+                </>
+              )}
+              {negativeReasons.length > 0 && (
+                <>
+                  <h4 className="drawer-sublabel">What pulled the score down</h4>
+                  <ul className="reason-list">
+                    {negativeReasons.map((r) => (
+                      <ReasonRow key={`n-${r.code}`} r={r} kind="neg" />
+                    ))}
+                  </ul>
+                </>
+              )}
+            </details>
           </section>
         )}
 

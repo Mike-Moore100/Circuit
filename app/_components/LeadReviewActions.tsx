@@ -3,10 +3,10 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  CALIBRATION_REVIEW_TYPES,
   REVIEW_HINT,
   REVIEW_LABEL,
-  REVIEW_TYPES,
-  type ReviewType,
+  type CalibrationReviewType,
 } from '../../src/validation/types';
 
 interface Props {
@@ -15,9 +15,9 @@ interface Props {
   currentReview: string | null;
 }
 
-// Keep the six actions in the order the operator scans them, with the
-// most-common positive vs negative outcomes grouped.
-const ORDER: ReviewType[] = [
+// Calibration feedback only. Operator throughput tags (ignore / revisit /
+// fast close / etc.) live on QuickReviewActions next to the card.
+const ORDER: CalibrationReviewType[] = [
   'correct_campaign',
   'strong_opportunity',
   'weak_opportunity',
@@ -30,7 +30,7 @@ const ORDER: ReviewType[] = [
 // reads as one consistent control. Positive ratings use a success tint,
 // negative ratings (the "wrongly..." pair) use a danger tint, neutrals
 // stay grey. Selected state fills with the matching solid colour.
-function toneClass(type: ReviewType, current: string | null): string {
+function toneClass(type: CalibrationReviewType, current: string | null): string {
   const selected = current === type;
   if (type === 'correct_campaign' || type === 'strong_opportunity') {
     return selected ? 'btn btn-success' : 'btn btn-success-outline';
@@ -50,7 +50,7 @@ export function LeadReviewActions({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  async function send(reviewType: ReviewType) {
+  async function send(reviewType: CalibrationReviewType) {
     setError(null);
     const res = await fetch('/api/lead-review', {
       method: 'POST',
@@ -88,7 +88,7 @@ export function LeadReviewActions({
       </div>
       {currentReview && (
         <div className="review-feedback-current">
-          Last review: <strong>{REVIEW_LABEL[currentReview as ReviewType] ?? currentReview}</strong>
+          Last review: <strong>{REVIEW_LABEL[currentReview as CalibrationReviewType] ?? currentReview}</strong>
         </div>
       )}
       {error && <div className="action-error">{error}</div>}

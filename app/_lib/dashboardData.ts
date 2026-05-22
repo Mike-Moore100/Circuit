@@ -9,6 +9,7 @@ import {
   getInspectionStats,
   getLatestReviewByCompany,
   getOpportunityIntelligence,
+  getReviewTagsByCompany,
   getQualificationQueueStats,
   getRecentSourceRuns,
   listDiscoveryRuns,
@@ -16,6 +17,7 @@ import {
   listQualificationQueue,
 } from '../../src/db/repository';
 import type { OpportunityIntelligence } from '../../src/intelligence/intelligenceTypes';
+import { topWhyNow, type WhyNowSignal } from '../../src/intelligence/whyNowReasoning';
 import { CAMPAIGN_VALUES, CAMPAIGN_LABEL } from '../../src/scoring/campaignTypes';
 import type { Campaign } from '../../src/scoring/campaignTypes';
 import {
@@ -213,17 +215,143 @@ export interface IntelligenceRowSummary {
   humanAttentionPriority: string;
   likelyProjectType: string;
   estimatedCommercialPotential: string;
+  // Operator-scannable urgency reasons surfaced on the card. Computed
+  // deterministically from the full intelligence row + verified signals.
+  whyNow: WhyNowSignal[];
+  // Sub-scores the card needs as small pills. Keep numerics only so the
+  // server payload stays compact; the card formats them.
+  operationalPain: number;
+  trustBarrier: number;
+  buyingReadiness: number;
+  accessibility: number;
+  topOpportunityReason: string | null;
+  topRiskFactor: string | null;
+  strongestSignal: string | null;
+}
+
+// Rollup of "is there a usable contact path per company". Cheap aggregate
+// query so the cards can show "email / phone / no direct path" without
+// fetching the full contact list for every row.
+export interface ContactRollupRow {
+  hasContact: boolean;
+  hasPhone: boolean;
+}
+
+// Every operator tag ever applied to each company. Used by the cards to
+// show currently-applied tags AND to render the active state on the
+// quick-action buttons. We return arrays rather than Sets so the value
+// crosses the server → client boundary cleanly.
+export function getOperatorTagsByCompany(): Record<string, string[]> {
+  const map = getReviewTagsByCompany(getDb());
+  const out: Record<string, string[]> = {};
+  for (const [companyId, tags] of map) {
+    out[companyId] = [...tags];
+  }
+  return out;
+}
+
+export function getContactRollupsByCompany(): Record<string, ContactRollupRow> {
+  const db = getDb();
+  // Has any non-null email — counts emails the operator could actually use.
+  const emailRows = db
+    .prepare(
+      "SELECT DISTINCT company_id FROM contacts WHERE email IS NOT NULL AND email <> ''",
+    )
+    .all() as Array<{ company_id: string }>;
+  const phoneRows = db
+    .prepare(
+      "SELECT DISTINCT company_id FROM contact_routes WHERE route_type = 'PHONE'",
+    )
+    .all() as Array<{ company_id: string }>;
+  const out: Record<string, ContactRollupRow> = {};
+  for (const r of emailRows) {
+    out[r.company_id] = { hasContact: true, hasPhone: false };
+  }
+  for (const r of phoneRows) {
+    const existing = out[r.company_id] ?? { hasContact: false, hasPhone: false };
+    out[r.company_id] = { hasContact: existing.hasContact, hasPhone: true };
+  }
+  return out;
 }
 
 export function getIntelligenceSummariesByCompany(): Record<string, IntelligenceRowSummary> {
-  const rows = listOpportunityIntelligence(getDb(), { limit: 500 });
+  const db = getDb();
+  const rows = listOpportunityIntelligence(db, { limit: 500 });
   const out: Record<string, IntelligenceRowSummary> = {};
+
+  // We need verified signals + contactability for the why-now computation.
+  // Single-query approach keeps this O(1) DB calls instead of O(N).
+  const signalRows = db
+    .prepare(
+      `SELECT company_id, type, value
+         FROM signals
+        WHERE source = 'website_inspection'`,
+    )
+    .all() as Array<{ company_id: string; type: string; value: string }>;
+  const signalsByCompany = new Map<
+    string,
+    Array<{ type: string; value: string }>
+  >();
+  for (const s of signalRows) {
+    let arr = signalsByCompany.get(s.company_id);
+    if (!arr) {
+      arr = [];
+      signalsByCompany.set(s.company_id, arr);
+    }
+    arr.push({ type: s.type, value: s.value });
+  }
+
+  // Contactability rolled up cheaply via aggregate queries.
+  const formCompanyIds = new Set(
+    (db
+      .prepare(
+        "SELECT DISTINCT company_id FROM signals WHERE type = 'verified.has_contact_form'",
+      )
+      .all() as Array<{ company_id: string }>).map((r) => r.company_id),
+  );
+  const bookingCompanyIds = new Set(
+    (db
+      .prepare(
+        "SELECT DISTINCT company_id FROM signals WHERE type = 'verified.has_booking_link'",
+      )
+      .all() as Array<{ company_id: string }>).map((r) => r.company_id),
+  );
+
   for (const r of rows) {
+    let intelligence: OpportunityIntelligence | null = null;
+    try {
+      intelligence = JSON.parse(r.payload_json) as OpportunityIntelligence;
+    } catch {
+      // Bad row — surface the basics but skip the derived bits.
+    }
+    const verified = signalsByCompany.get(r.company_id) ?? [];
+    const hasWorkingWebsite = verified.some(
+      (s) =>
+        s.type === 'verified.website_loads' ||
+        s.type === 'verified.has_working_website',
+    );
+    const whyNow = intelligence
+      ? topWhyNow({
+          intelligence,
+          verifiedSignals: verified,
+          hasContactForm: formCompanyIds.has(r.company_id),
+          hasBookingLink: bookingCompanyIds.has(r.company_id),
+          hasWorkingWebsite,
+        })
+      : [];
     out[r.company_id] = {
       opportunityScore: r.opportunity_score,
       humanAttentionPriority: r.human_attention_priority,
       likelyProjectType: r.likely_project_type,
       estimatedCommercialPotential: r.estimated_commercial_potential,
+      whyNow,
+      operationalPain: intelligence?.operationalPain.score ?? 0,
+      trustBarrier: intelligence?.trustBarrier.score ?? 0,
+      buyingReadiness: intelligence?.buyingReadiness.score ?? 0,
+      accessibility: intelligence?.accessibility.score ?? 0,
+      topOpportunityReason: intelligence?.opportunityReasons[0] ?? null,
+      topRiskFactor: intelligence?.riskFactors[0] ?? null,
+      strongestSignal: intelligence?.strongestSignals[0] ?? null,
     };
   }
   return out;

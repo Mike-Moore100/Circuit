@@ -2003,6 +2003,46 @@ export function getLatestReviewByCompany(
   return map;
 }
 
+// Distinct review tags ever applied per company. Used by the Opportunity
+// Command Center to surface multiple operator tags simultaneously (a lead
+// can be both "high trust barrier" AND "likely high value", and we want
+// both pills visible without forcing the operator to choose one).
+export function getReviewTagsByCompany(
+  db: Database = getDb(),
+): Map<string, Set<string>> {
+  const rows = db
+    .prepare(
+      'SELECT DISTINCT company_id, review_type FROM lead_reviews',
+    )
+    .all() as Array<{ company_id: string; review_type: string }>;
+  const map = new Map<string, Set<string>>();
+  for (const r of rows) {
+    let set = map.get(r.company_id);
+    if (!set) {
+      set = new Set();
+      map.set(r.company_id, set);
+    }
+    set.add(r.review_type);
+  }
+  return map;
+}
+
+// Remove a single tag for a company — used when the operator un-toggles an
+// operator action they previously applied. We delete every row of that type
+// so the tag fully clears from the lead's history-derived state.
+export function deleteReviewTag(
+  companyId: string,
+  reviewType: string,
+  db: Database = getDb(),
+): number {
+  const res = db
+    .prepare(
+      'DELETE FROM lead_reviews WHERE company_id = ? AND review_type = ?',
+    )
+    .run(companyId, reviewType);
+  return res.changes;
+}
+
 export function countReviewsByType(
   db: Database = getDb(),
 ): Record<string, number> {
