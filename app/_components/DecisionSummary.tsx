@@ -104,22 +104,25 @@ export function DecisionSummary({
               </>
             )}
           </div>
-        </div>
-      </header>
 
-      {mode === 'drawer' && (
-        <div className={`recommended-action recommended-${recommendedAction.tone}`}>
-          <div className="recommended-action-head">
-            <span className="recommended-action-label">Recommended</span>
-            <strong>{recommendedAction.label}</strong>
-          </div>
-          <p className="recommended-action-reasoning">
-            {recommendedAction.reasoning}
-          </p>
-        </div>
-      )}
+          {mode === 'drawer' && (
+            <div className={`recommended-action recommended-${recommendedAction.tone}`}>
+              <div className="recommended-action-head">
+                <span className="recommended-action-label">Recommended</span>
+                <strong>{recommendedAction.label}</strong>
+              </div>
+              <p className="recommended-action-reasoning">
+                {recommendedAction.reasoning}
+              </p>
+            </div>
+          )}
 
-      <ul className="decision-rows">
+          {/* Decision rows live INSIDE the head-main block so they
+             auto-indent to align with the title (i.e. they sit past
+             the avatar). Putting them at the .decision-summary top
+             level put the labels at the card's left edge and the
+             title at avatar+12px — visually broken. */}
+          <ul className="decision-rows">
         {strongestReason && (
           <DecisionRow label="Why it matters" tone="pos">
             {strongestReason}
@@ -152,7 +155,9 @@ export function DecisionSummary({
             {registrySummaryLine(registry)}
           </DecisionRow>
         )}
-      </ul>
+          </ul>
+        </div>
+      </header>
     </div>
   );
 }
