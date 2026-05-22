@@ -3139,15 +3139,15 @@ details.row-details > summary:hover { color: var(--text); }
    page. Sidebar is the operator's "where", SubNav is the operator's
    "what within where". Always present when the route belongs to a
    group; hides on Settings + any orphan route. */
-/* Thin tab strip — full-bleed across the main content area. The
-   parent .app-main has 32px horizontal padding; we escape it with a
-   negative margin so the strip's surface + border-bottom span
-   edge-to-edge, then add the same 32px back on the inner padding so
-   the tabs still align with the page content below. */
+/* Thin tab strip — full-bleed across the main content area.
+   `.app-main` has 32px horizontal padding; we escape it with a
+   negative margin so the strip's border-bottom spans edge-to-edge,
+   then add the same 32px back inside so the FIRST tab's text starts
+   at exactly the same x as the page title + section content below. */
 .section-subnav {
   display: flex;
   align-items: stretch;
-  gap: 2px;
+  gap: 24px;
   margin: 0 calc(-1 * var(--space-8));
   padding: 0 var(--space-8);
   border-bottom: 1px solid var(--border);
@@ -3158,11 +3158,15 @@ details.row-details > summary:hover { color: var(--text); }
   .section-subnav {
     margin: 0 calc(-1 * var(--space-5));
     padding: 0 var(--space-5);
+    gap: 18px;
   }
 }
 .section-subnav-tab {
   position: relative;
-  padding: 10px 14px;
+  /* Vertical padding only — horizontal spacing comes from the
+     parent flex `gap`. This keeps the first tab's text flush with
+     the strip's left padding, which matches `.app-main`. */
+  padding: 12px 0;
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-muted);
