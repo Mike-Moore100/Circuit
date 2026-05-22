@@ -132,7 +132,7 @@ export default async function DashboardPage({
   return (
     <>
       {/* ============ Topbar — title only, no fake CTA ============ */}
-      <header className="topbar">
+      <header className="topbar" id="overview">
         <div className="topbar-title">
           <h1>Overview</h1>
           <div className="topbar-stats">

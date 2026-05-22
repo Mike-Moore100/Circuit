@@ -71,7 +71,7 @@ export async function Sidebar() {
   const data = await getDashboardData().catch(() => null);
   const queueCount = data?.reviewQueue.length ?? 0;
   const rejectedCount = data?.rejected.length ?? 0;
-  const sourcesCount = data ? new Set(data.sourceRuns.map((r) => r.source)).size : 0;
+  const discoveredToday = data?.discovery.validToday ?? 0;
 
   return (
     <aside className="sidebar">
@@ -83,8 +83,8 @@ export async function Sidebar() {
       <nav className="nav-stack">
         <NavItem icon="dashboard" label="Overview" href="#overview" active />
         <NavItem icon="queue" label="Review queue" href="#review" badge={queueCount} />
-        <NavItem icon="sources" label="Sources" href="#sources" badge={sourcesCount} />
-        <NavItem icon="inspect" label="Inspection" href="#inspection" />
+        <NavItem icon="sources" label="Discovery" href="#discovery" badge={discoveredToday || null} />
+        <NavItem icon="inspect" label="Diagnostics" href="#diagnostics" />
         <NavItem icon="rejected" label="Rejected" href="#rejected" badge={rejectedCount} />
       </nav>
     </aside>

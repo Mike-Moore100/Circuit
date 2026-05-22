@@ -1556,7 +1556,14 @@ body:has(.drawer) .app-main { padding-right: 500px; }
   border-radius: var(--radius);
   margin-bottom: var(--space-3);
   overflow: hidden;
+  /* Highlight the disclosure when the URL fragment targets it so the
+     operator immediately sees which one they landed on. (Anchors can't
+     force a <details> open in pure CSS — the highlight is the
+     compromise.) */
+  scroll-margin-top: var(--space-5);
 }
+.disclosure:target { border-color: var(--accent); }
+.disclosure:target > summary { background: var(--accent-soft); }
 .disclosure > summary {
   list-style: none;
   cursor: pointer;
