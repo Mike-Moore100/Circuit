@@ -269,4 +269,29 @@ CREATE INDEX IF NOT EXISTS raw_discoveries_run_idx        ON raw_discoveries(run
 CREATE INDEX IF NOT EXISTS raw_discoveries_source_idx     ON raw_discoveries(source);
 CREATE INDEX IF NOT EXISTS raw_discoveries_status_idx     ON raw_discoveries(validation_status);
 CREATE INDEX IF NOT EXISTS raw_discoveries_discovered_idx ON raw_discoveries(discovered_at DESC);
+
+-- Phase 12: Discovery → Qualification auto-promotion. Single row per
+-- (discovery → company) decision. PROMOTED rows link to companies.id;
+-- SKIPPED rows are the audit trail of what we chose NOT to deeply
+-- process and why.
+CREATE TABLE IF NOT EXISTS qualification_queue (
+  id                TEXT PRIMARY KEY,
+  discovery_id      TEXT REFERENCES raw_discoveries(id) ON DELETE SET NULL,
+  company_id        TEXT REFERENCES companies(id) ON DELETE SET NULL,
+  domain            TEXT NOT NULL,
+  source            TEXT NOT NULL,
+  status            TEXT NOT NULL,
+  priority          INTEGER NOT NULL DEFAULT 0,
+  promotion_reason  TEXT NOT NULL,
+  error_message     TEXT,
+  created_at        TEXT NOT NULL,
+  updated_at        TEXT NOT NULL
+);
+
+-- One queue row per domain. Re-promotion needs to delete the existing
+-- row first (or the upsert path takes care of it).
+CREATE UNIQUE INDEX IF NOT EXISTS qualification_queue_domain_idx ON qualification_queue(domain);
+CREATE INDEX IF NOT EXISTS qualification_queue_status_idx        ON qualification_queue(status);
+CREATE INDEX IF NOT EXISTS qualification_queue_priority_idx      ON qualification_queue(priority DESC);
+CREATE INDEX IF NOT EXISTS qualification_queue_created_at_idx    ON qualification_queue(created_at DESC);
 `;

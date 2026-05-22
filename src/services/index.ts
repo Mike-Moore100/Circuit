@@ -8,3 +8,4 @@ export * from './evidenceService';
 export * from './intelligenceService';
 export * from './seedService';
 export * from './discoveryService';
+export * from './promotionService';

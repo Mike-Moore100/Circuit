@@ -25,6 +25,8 @@
     "debug:learning": "tsx scripts/debugLearning.ts",
     "debug:discovery": "tsx scripts/debugDiscovery.ts",
     "run:discovery": "tsx scripts/runDiscoveryCli.ts",
+    "debug:promotion": "tsx scripts/debugPromotion.ts",
+    "run:promotion": "tsx scripts/runPromotionCli.ts",
     "db:reset": "tsx scripts/resetDb.ts",
     "test": "vitest run",
     "test:watch": "vitest"

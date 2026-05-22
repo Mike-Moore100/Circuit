@@ -9,9 +9,11 @@ import {
   getInspectionStats,
   getLatestReviewByCompany,
   getOpportunityIntelligence,
+  getQualificationQueueStats,
   getRecentSourceRuns,
   listDiscoveryRuns,
   listOpportunityIntelligence,
+  listQualificationQueue,
 } from '../../src/db/repository';
 import type { OpportunityIntelligence } from '../../src/intelligence/intelligenceTypes';
 import { CAMPAIGN_VALUES, CAMPAIGN_LABEL } from '../../src/scoring/campaignTypes';
@@ -288,6 +290,25 @@ export interface DashboardData {
   validation: ValidationOverview;
   // Phase 11 — top-of-funnel discovery throughput
   discovery: DiscoveryOverview;
+  // Phase 12 — Discovery → Qualification queue
+  promotion: PromotionOverview;
+}
+
+export interface PromotionOverview {
+  total: number;
+  byStatus: Record<string, number>;
+  topPromotionReasons: Array<{ reason: string; count: number }>;
+  recent24hPromoted: number;
+  recent24hSkipped: number;
+  recent24hFailed: number;
+  recent: Array<{
+    id: string;
+    domain: string;
+    status: string;
+    priority: number;
+    promotionReason: string;
+    createdAt: string;
+  }>;
 }
 
 export interface DiscoveryOverview {
@@ -702,6 +723,28 @@ export async function getDashboardData(): Promise<DashboardData> {
       reviewByCompany,
     },
     discovery: buildDiscoveryOverview(db),
+    promotion: buildPromotionOverview(db),
+  };
+}
+
+function buildPromotionOverview(db: ReturnType<typeof getDb>): PromotionOverview {
+  const stats = getQualificationQueueStats(db);
+  const rows = listQualificationQueue({ limit: 12 }, db);
+  return {
+    total: stats.total,
+    byStatus: stats.byStatus,
+    topPromotionReasons: stats.topPromotionReasons,
+    recent24hPromoted: stats.recent24hPromoted,
+    recent24hSkipped: stats.recent24hSkipped,
+    recent24hFailed: stats.recent24hFailed,
+    recent: rows.map((r) => ({
+      id: r.id,
+      domain: r.domain,
+      status: r.status,
+      priority: r.priority,
+      promotionReason: r.promotion_reason,
+      createdAt: r.created_at,
+    })),
   };
 }
 

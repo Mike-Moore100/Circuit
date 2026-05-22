@@ -802,6 +802,253 @@ export function getDiscoveryStats(db: Database = getDb()): {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Phase 12 — Qualification queue (Discovery → Qualification promotion)
+// ---------------------------------------------------------------------------
+export interface QualificationQueueDbRow {
+  id: string;
+  discovery_id: string | null;
+  company_id: string | null;
+  domain: string;
+  source: string;
+  status: string;
+  priority: number;
+  promotion_reason: string;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function upsertQualificationQueueRow(
+  input: {
+    discoveryId: string | null;
+    companyId: string | null;
+    domain: string;
+    source: string;
+    status: string;
+    priority: number;
+    promotionReason: string;
+    errorMessage?: string | null;
+  },
+  db: Database = getDb(),
+): QualificationQueueDbRow {
+  const existing = db
+    .prepare('SELECT * FROM qualification_queue WHERE domain = ?')
+    .get(input.domain) as QualificationQueueDbRow | undefined;
+  const ts = now();
+  if (existing) {
+    db.prepare(
+      `UPDATE qualification_queue
+         SET discovery_id    = COALESCE(?, discovery_id),
+             company_id      = COALESCE(?, company_id),
+             source          = ?,
+             status          = ?,
+             priority        = ?,
+             promotion_reason= ?,
+             error_message   = ?,
+             updated_at      = ?
+       WHERE id = ?`,
+    ).run(
+      input.discoveryId,
+      input.companyId,
+      input.source,
+      input.status,
+      input.priority,
+      input.promotionReason,
+      input.errorMessage ?? null,
+      ts,
+      existing.id,
+    );
+    return {
+      ...existing,
+      discovery_id: input.discoveryId ?? existing.discovery_id,
+      company_id: input.companyId ?? existing.company_id,
+      source: input.source,
+      status: input.status,
+      priority: input.priority,
+      promotion_reason: input.promotionReason,
+      error_message: input.errorMessage ?? null,
+      updated_at: ts,
+    };
+  }
+  const row: QualificationQueueDbRow = {
+    id: randomUUID(),
+    discovery_id: input.discoveryId,
+    company_id: input.companyId,
+    domain: input.domain,
+    source: input.source,
+    status: input.status,
+    priority: input.priority,
+    promotion_reason: input.promotionReason,
+    error_message: input.errorMessage ?? null,
+    created_at: ts,
+    updated_at: ts,
+  };
+  db.prepare(
+    `INSERT INTO qualification_queue
+       (id, discovery_id, company_id, domain, source, status, priority,
+        promotion_reason, error_message, created_at, updated_at)
+     VALUES
+       (@id, @discovery_id, @company_id, @domain, @source, @status, @priority,
+        @promotion_reason, @error_message, @created_at, @updated_at)`,
+  ).run(row);
+  return row;
+}
+
+export function transitionQualificationStatus(
+  domain: string,
+  status: string,
+  options: { companyId?: string | null; errorMessage?: string | null } = {},
+  db: Database = getDb(),
+): void {
+  db.prepare(
+    `UPDATE qualification_queue
+       SET status        = ?,
+           company_id    = COALESCE(?, company_id),
+           error_message = ?,
+           updated_at    = ?
+     WHERE domain = ?`,
+  ).run(
+    status,
+    options.companyId ?? null,
+    options.errorMessage ?? null,
+    now(),
+    domain,
+  );
+}
+
+export function listQualificationQueue(
+  options: { status?: string | string[]; limit?: number } = {},
+  db: Database = getDb(),
+): QualificationQueueDbRow[] {
+  const statuses = options.status
+    ? Array.isArray(options.status)
+      ? options.status
+      : [options.status]
+    : null;
+  const where = statuses ? `WHERE status IN (${statuses.map(() => '?').join(',')})` : '';
+  const limit = typeof options.limit === 'number' ? `LIMIT ${options.limit}` : '';
+  const sql = `SELECT * FROM qualification_queue ${where} ORDER BY priority DESC, created_at ASC ${limit}`;
+  return (statuses
+    ? db.prepare(sql).all(...statuses)
+    : db.prepare(sql).all()) as QualificationQueueDbRow[];
+}
+
+export function getQualificationQueueStats(
+  db: Database = getDb(),
+): {
+  total: number;
+  byStatus: Record<string, number>;
+  topPromotionReasons: Array<{ reason: string; count: number }>;
+  recent24hPromoted: number;
+  recent24hSkipped: number;
+  recent24hFailed: number;
+} {
+  const rows = db
+    .prepare('SELECT status, promotion_reason, created_at FROM qualification_queue')
+    .all() as Array<{ status: string; promotion_reason: string; created_at: string }>;
+  const byStatus: Record<string, number> = {};
+  const reasonsPromoted: Record<string, number> = {};
+  const reasonsSkipped: Record<string, number> = {};
+  let recent24hPromoted = 0;
+  let recent24hSkipped = 0;
+  let recent24hFailed = 0;
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  for (const r of rows) {
+    byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+    const created = new Date(r.created_at).getTime();
+    if (created >= cutoff) {
+      if (r.status === 'PROMOTED' || r.status === 'PENDING' || r.status === 'PROCESSING')
+        recent24hPromoted += 1;
+      else if (r.status === 'SKIPPED') recent24hSkipped += 1;
+      else if (r.status === 'FAILED') recent24hFailed += 1;
+    }
+    if (r.status === 'PROMOTED' || r.status === 'PENDING' || r.status === 'PROCESSING') {
+      reasonsPromoted[r.promotion_reason] = (reasonsPromoted[r.promotion_reason] ?? 0) + 1;
+    } else if (r.status === 'SKIPPED') {
+      reasonsSkipped[r.promotion_reason] = (reasonsSkipped[r.promotion_reason] ?? 0) + 1;
+    }
+  }
+  const topPromotionReasons = Object.entries(reasonsPromoted)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([reason, count]) => ({ reason, count }));
+  return {
+    total: rows.length,
+    byStatus,
+    topPromotionReasons,
+    recent24hPromoted,
+    recent24hSkipped,
+    recent24hFailed,
+  };
+}
+
+// Read fresh validated discoveries that haven't yet been considered by
+// the promotion gate. The promoter joins against the queue so we never
+// re-evaluate the same domain twice.
+export function listValidatedDiscoveriesAwaitingPromotion(
+  db: Database = getDb(),
+  limit = 500,
+): Array<{
+  id: string;
+  domain: string;
+  business_name: string;
+  source: string;
+  title: string | null;
+  snippet: string | null;
+  location: string | null;
+  phone: string | null;
+}> {
+  return db
+    .prepare(
+      `SELECT rd.id, rd.extracted_domain AS domain, rd.business_name, rd.source,
+              rd.title, rd.snippet, rd.location, rd.phone
+       FROM raw_discoveries rd
+       LEFT JOIN qualification_queue qq ON qq.domain = rd.extracted_domain
+       WHERE rd.validation_status = 'valid'
+         AND rd.extracted_domain IS NOT NULL
+         AND qq.id IS NULL
+       ORDER BY rd.discovered_at DESC
+       LIMIT ?`,
+    )
+    .all(limit) as Array<{
+    id: string;
+    domain: string;
+    business_name: string;
+    source: string;
+    title: string | null;
+    snippet: string | null;
+    location: string | null;
+    phone: string | null;
+  }>;
+}
+
+// Plain upsert path used by the promoter — creates a companies row
+// keyed on (domain, source). Returns the company id.
+export function upsertCompanyFromPromotion(
+  input: {
+    name: string;
+    domain: string;
+    websiteUrl: string;
+    source: string;
+    location: string | null;
+  },
+  db: Database = getDb(),
+): string {
+  const existing = db
+    .prepare('SELECT id FROM companies WHERE domain = ?')
+    .get(input.domain) as { id: string } | undefined;
+  if (existing) return existing.id;
+  const id = randomUUID();
+  const ts = now();
+  db.prepare(
+    `INSERT INTO companies (id, name, domain, website_url, industry, location,
+                            size_estimate, source, source_url, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, NULL, ?, NULL, ?, NULL, 'review', ?, ?)`,
+  ).run(id, input.name, input.domain, input.websiteUrl, input.location, input.source, ts, ts);
+  return id;
+}
+
 export function getEvidenceStats(db: Database = getDb()): {
   companiesWithEvidence: number;
   totalEvidenceRows: number;

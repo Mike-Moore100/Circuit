@@ -246,6 +246,82 @@ export default async function DashboardPage({
         </details>
       </section>
 
+      {/* ============ Promotion queue (collapsed) ============ */}
+      <section className="section" id="promotion">
+        <details className="disclosure">
+          <summary>
+            Promotion
+            <span className="summary-meta">
+              {data.promotion.byStatus.PENDING ?? 0} pending · {data.promotion.byStatus.PROMOTED ?? 0} promoted · {data.promotion.byStatus.SKIPPED ?? 0} skipped · {data.promotion.byStatus.FAILED ?? 0} failed
+            </span>
+          </summary>
+          <div className="disclosure-body" style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <div className="discovery-strip">
+              <div className="discovery-stat">
+                <span className="discovery-stat-label">Pending</span>
+                <span className="discovery-stat-value">{data.promotion.byStatus.PENDING ?? 0}</span>
+                <span className="discovery-stat-foot">awaiting qualification</span>
+              </div>
+              <div className="discovery-stat">
+                <span className="discovery-stat-label">Promoted</span>
+                <span className="discovery-stat-value">{data.promotion.byStatus.PROMOTED ?? 0}</span>
+                <span className="discovery-stat-foot">{data.promotion.recent24hPromoted} in last 24h</span>
+              </div>
+              <div className="discovery-stat">
+                <span className="discovery-stat-label">Skipped</span>
+                <span className="discovery-stat-value">{data.promotion.byStatus.SKIPPED ?? 0}</span>
+                <span className="discovery-stat-foot">{data.promotion.recent24hSkipped} in last 24h</span>
+              </div>
+              <div className="discovery-stat">
+                <span className="discovery-stat-label">Failed</span>
+                <span className="discovery-stat-value">{data.promotion.byStatus.FAILED ?? 0}</span>
+                <span className="discovery-stat-foot">qualification errors</span>
+              </div>
+            </div>
+
+            {data.promotion.topPromotionReasons.length > 0 && (
+              <div>
+                <h3 className="section-title" style={{ fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Top promotion reasons</h3>
+                <ul className="reason-list">
+                  {data.promotion.topPromotionReasons.map((r) => (
+                    <li key={r.reason} className="reason pos">
+                      <span className="delta">{r.count}</span>
+                      <span className="label">{r.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {data.promotion.recent.length > 0 && (
+              <div>
+                <h3 className="section-title" style={{ fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Recent queue</h3>
+                <table className="runs-table">
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Priority</th>
+                      <th>Domain</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.promotion.recent.map((r) => (
+                      <tr key={r.id}>
+                        <td><span className={`status-pill ${r.status.toLowerCase()}`}>{r.status}</span></td>
+                        <td className="num">{r.priority}</td>
+                        <td>{r.domain}</td>
+                        <td>{r.promotionReason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </details>
+      </section>
+
       {/* ============ Pipeline diagnostics (collapsed by default) ============ */}
       <section className="section" id="diagnostics">
         <details className="disclosure">
