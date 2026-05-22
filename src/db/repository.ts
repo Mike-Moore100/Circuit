@@ -181,6 +181,17 @@ export interface ContactRow extends Contact {
   overall_confidence: number | null;
   is_primary: number | null;
   discovered_at: string | null;
+  // Phase 1 email confidence — populated by the verification
+  // pipeline. NULL on rows that haven't been verified yet.
+  email_verification_status: string | null;
+  email_confidence_score: number | null;
+  email_risk_reasons_json: string | null;
+  mx_records_json: string | null;
+  email_checked_at: string | null;
+  is_disposable: number | null;
+  is_role_based: number | null;
+  is_catch_all_risk: number | null;
+  verification_method: string | null;
 }
 
 export function getContactsForCompany(
@@ -334,6 +345,17 @@ export function insertOrUpdateContact(
     overall_confidence: input.overallConfidence,
     is_primary: input.isPrimary ? 1 : 0,
     discovered_at: now(),
+    // Phase 1 email confidence — defaults for new rows. Verification
+    // runs separately and patches these columns later.
+    email_verification_status: null,
+    email_confidence_score: null,
+    email_risk_reasons_json: null,
+    mx_records_json: null,
+    email_checked_at: null,
+    is_disposable: 0,
+    is_role_based: 0,
+    is_catch_all_risk: 0,
+    verification_method: null,
   };
   db.prepare(
     `INSERT INTO contacts
@@ -2111,6 +2133,72 @@ export function deleteReviewTag(
     )
     .run(companyId, reviewType);
   return res.changes;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1 — email confidence persistence. One row per contact already
+// exists; we upsert the verification result onto it.
+// ---------------------------------------------------------------------------
+export interface EmailConfidencePersistInput {
+  contactId: string;
+  status: string;
+  confidence: number;
+  reasonsJson: string;
+  mxRecordsJson: string | null;
+  checkedAt: string;
+  isDisposable: boolean;
+  isRoleBased: boolean;
+  isCatchAllRisk: boolean;
+  verificationMethod: string;
+}
+
+export function persistEmailConfidence(
+  input: EmailConfidencePersistInput,
+  db: Database = getDb(),
+): void {
+  db.prepare(
+    `UPDATE contacts SET
+       email_verification_status = @status,
+       email_confidence_score    = @confidence,
+       email_risk_reasons_json   = @reasonsJson,
+       mx_records_json           = @mxRecordsJson,
+       email_checked_at          = @checkedAt,
+       is_disposable             = @isDisposable,
+       is_role_based             = @isRoleBased,
+       is_catch_all_risk         = @isCatchAllRisk,
+       verification_method       = @verificationMethod
+     WHERE id = @contactId`,
+  ).run({
+    contactId: input.contactId,
+    status: input.status,
+    confidence: input.confidence,
+    reasonsJson: input.reasonsJson,
+    mxRecordsJson: input.mxRecordsJson,
+    checkedAt: input.checkedAt,
+    isDisposable: input.isDisposable ? 1 : 0,
+    isRoleBased: input.isRoleBased ? 1 : 0,
+    isCatchAllRisk: input.isCatchAllRisk ? 1 : 0,
+    verificationMethod: input.verificationMethod,
+  });
+}
+
+// Used by the catch-all heuristic — count guessed emails persisted on
+// a domain. Cheap aggregate, no joins.
+export function countGuessedEmailsOnDomain(
+  domain: string,
+  db: Database = getDb(),
+): { guessed: number; total: number } {
+  const row = db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN email_status = 'guessed' THEN 1 ELSE 0 END) AS guessed,
+         COUNT(*) AS total
+       FROM contacts
+      WHERE email IS NOT NULL
+        AND lower(email) LIKE '%@' || lower(?)`,
+    )
+    .get(domain) as { guessed: number | null; total: number };
+  return { guessed: row.guessed ?? 0, total: row.total };
 }
 
 // ---------------------------------------------------------------------------

@@ -164,6 +164,7 @@ export interface ValidationOverview {
 }
 
 export interface LeadContact {
+  id: string;
   name: string | null;
   role: string | null;
   email: string | null;
@@ -175,6 +176,16 @@ export interface LeadContact {
   source: string;
   overallConfidence: number;
   isPrimary: boolean;
+  // Phase 1 email confidence — populated by the verification
+  // pipeline. Null when the contact has never been checked.
+  emailVerificationStatus: string | null;
+  emailConfidenceScore: number | null;
+  emailRiskReasons: Array<{ code: string; label: string; delta: number }> | null;
+  emailCheckedAt: string | null;
+  isDisposable: boolean;
+  isRoleBased: boolean;
+  isCatchAllRisk: boolean;
+  verificationMethod: string | null;
 }
 
 export interface LeadRoute {
@@ -269,6 +280,50 @@ export interface RegistryRowSummary {
   status: string | null;
   ageYears: number | null;
   confidence: string | null;
+}
+
+// Per-company email-confidence rollup. Drives the email filter on
+// /opportunities. "Best" = strongest tier any email on the company has.
+export interface EmailConfidenceRollup {
+  best: 'VALID_LIKELY' | 'RISKY' | 'UNKNOWN' | 'INVALID' | 'UNCHECKED' | 'NONE';
+  hasEmail: boolean;
+  guessedOnly: boolean;
+}
+
+export function getEmailConfidenceRollupsByCompany(): Record<string, EmailConfidenceRollup> {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT company_id, email_status, email_verification_status
+         FROM contacts
+        WHERE email IS NOT NULL AND email <> ''`,
+    )
+    .all() as Array<{
+    company_id: string;
+    email_status: string | null;
+    email_verification_status: string | null;
+  }>;
+  const tierOrder = ['VALID_LIKELY', 'RISKY', 'UNKNOWN', 'INVALID', 'UNCHECKED'] as const;
+  const rank = new Map<string, number>(tierOrder.map((t, i) => [t, i]));
+  const out: Record<string, EmailConfidenceRollup> = {};
+  const guessedFlags = new Map<string, { allGuessed: boolean; hasAny: boolean }>();
+  for (const r of rows) {
+    const cur = out[r.company_id] ?? { best: 'UNCHECKED' as EmailConfidenceRollup['best'], hasEmail: true, guessedOnly: true };
+    const status = (r.email_verification_status ?? 'UNCHECKED') as string;
+    if ((rank.get(status) ?? 99) < (rank.get(cur.best) ?? 99)) {
+      cur.best = status as EmailConfidenceRollup['best'];
+    }
+    out[r.company_id] = { ...cur, hasEmail: true };
+    const flag = guessedFlags.get(r.company_id) ?? { allGuessed: true, hasAny: false };
+    flag.hasAny = true;
+    if (r.email_status !== 'guessed') flag.allGuessed = false;
+    guessedFlags.set(r.company_id, flag);
+  }
+  for (const [companyId, flag] of guessedFlags) {
+    const cur = out[companyId];
+    if (cur) cur.guessedOnly = flag.allGuessed && flag.hasAny;
+  }
+  return out;
 }
 
 // Rollup of "is there a usable contact path per company". Cheap aggregate
@@ -707,22 +762,35 @@ export interface DiscoveryOverview {
 // main dashboardData response.
 export function getContactsForLead(companyId: string): LeadContactBundle {
   const db = getDb();
-  const contacts: LeadContact[] = getContactsForCompany(companyId, db).map((c) => ({
-    name: c.name,
-    role: c.role,
-    email: c.email,
-    emailType: c.email_type,
-    emailStatus: c.email_status,
-    linkedinUrl: c.linkedin_url,
-    sourceUrl: c.source_url,
-    // 'static' | 'playwright' | 'guessed' | 'inferred' | 'source-feed'.
-    // Older rows may carry 'website' (pre-Phase-8.1) — surface as 'static'.
-    source: c.source === 'website' ? 'static' : c.source ?? 'static',
-    // Legacy Phase-1 contacts only populated `confidence`; fall back so the
-    // dashboard doesn't show 0 for a real Founder + email pair.
-    overallConfidence: c.overall_confidence ?? c.confidence ?? 0,
-    isPrimary: Boolean(c.is_primary),
-  }));
+  const contacts: LeadContact[] = getContactsForCompany(companyId, db).map((c) => {
+    let emailRiskReasons: LeadContact['emailRiskReasons'] = null;
+    if (c.email_risk_reasons_json) {
+      try {
+        emailRiskReasons = JSON.parse(c.email_risk_reasons_json);
+      } catch { /* ignore — bad row, surface as null */ }
+    }
+    return {
+      id: c.id,
+      name: c.name,
+      role: c.role,
+      email: c.email,
+      emailType: c.email_type,
+      emailStatus: c.email_status,
+      linkedinUrl: c.linkedin_url,
+      sourceUrl: c.source_url,
+      source: c.source === 'website' ? 'static' : c.source ?? 'static',
+      overallConfidence: c.overall_confidence ?? c.confidence ?? 0,
+      isPrimary: Boolean(c.is_primary),
+      emailVerificationStatus: c.email_verification_status,
+      emailConfidenceScore: c.email_confidence_score,
+      emailRiskReasons,
+      emailCheckedAt: c.email_checked_at,
+      isDisposable: Boolean(c.is_disposable),
+      isRoleBased: Boolean(c.is_role_based),
+      isCatchAllRisk: Boolean(c.is_catch_all_risk),
+      verificationMethod: c.verification_method,
+    };
+  });
   const routes: LeadRoute[] = getContactRoutesForCompany(companyId, db).map(
     (r) => ({
       type: r.route_type,

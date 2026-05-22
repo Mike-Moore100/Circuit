@@ -9,6 +9,7 @@ import {
   getContactRollupsByCompany,
   getContactsForLead,
   getDashboardData,
+  getEmailConfidenceRollupsByCompany,
   getEvidenceForLead,
   getIntelligenceForLead,
   getIntelligenceSummariesByCompany,
@@ -62,17 +63,31 @@ function parseRegistryFilter(raw: string | undefined): RegistryFilter | null {
     : null;
 }
 
+// Email-confidence filter. Drives the "has likely valid email" /
+// "risky" / "guessed only" / "no usable email" chips so the operator
+// can slice the queue by reach quality without leaving the page.
+const EMAIL_FILTERS = ['likely_valid', 'risky', 'guessed_only', 'none'] as const;
+type EmailFilter = (typeof EMAIL_FILTERS)[number];
+
+function parseEmailFilter(raw: string | undefined): EmailFilter | null {
+  return raw && (EMAIL_FILTERS as readonly string[]).includes(raw)
+    ? (raw as EmailFilter)
+    : null;
+}
+
 // Helper — builds the "?…" suffix for a filter chip while preserving
 // every other filter currently in URL state. Empty when nothing is set.
 function buildQs(parts: {
   campaign?: string | null;
   topN?: number | null;
   registryFilter?: RegistryFilter | null;
+  emailFilter?: EmailFilter | null;
 }): string {
   const qs = new URLSearchParams();
   if (parts.campaign) qs.set('campaign', parts.campaign);
   if (parts.topN) qs.set('top', String(parts.topN));
   if (parts.registryFilter) qs.set('registry', parts.registryFilter);
+  if (parts.emailFilter) qs.set('email', parts.emailFilter);
   const str = qs.toString();
   return str ? `?${str}` : '';
 }
@@ -85,6 +100,7 @@ export default async function OpportunitiesPage({
     campaign?: string;
     top?: string;
     registry?: string;
+    email?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -92,10 +108,12 @@ export default async function OpportunitiesPage({
   const intelligenceByCompany = getIntelligenceSummariesByCompany();
   const operatorTagsByCompany = getOperatorTagsByCompany();
   const contactRollups = getContactRollupsByCompany();
+  const emailRollups = getEmailConfidenceRollupsByCompany();
   const selectedLeadId = params.lead ?? null;
   const campaignFilter = params.campaign ?? null;
   const topN = parseTop(params.top);
   const registryFilter = parseRegistryFilter(params.registry);
+  const emailFilter = parseEmailFilter(params.email);
 
   // Pre-sort by opportunity score (intelligence-aware ranking),
   // breaking ties with finalScore.
@@ -120,7 +138,23 @@ export default async function OpportunitiesPage({
         return registryBadgeFor(reg).filterKey === registryFilter;
       })
     : campaignFiltered;
-  const visibleRows = topN ? registryFiltered.slice(0, topN) : registryFiltered;
+  // Email-confidence filter.
+  //   likely_valid → at least one VALID_LIKELY email
+  //   risky        → best is RISKY
+  //   guessed_only → all emails are guessed (no extracted)
+  //   none         → no email at all
+  const emailFiltered = emailFilter
+    ? registryFiltered.filter((r) => {
+        const roll = emailRollups[r.companyId];
+        if (emailFilter === 'none') return !roll || !roll.hasEmail;
+        if (!roll) return false;
+        if (emailFilter === 'likely_valid') return roll.best === 'VALID_LIKELY';
+        if (emailFilter === 'risky') return roll.best === 'RISKY';
+        if (emailFilter === 'guessed_only') return roll.guessedOnly;
+        return true;
+      })
+    : registryFiltered;
+  const visibleRows = topN ? emailFiltered.slice(0, topN) : emailFiltered;
 
   // Build the list items the OpportunityList renders. We do the joining
   // here so the client component stays a thin rendering layer.
@@ -165,7 +199,7 @@ export default async function OpportunitiesPage({
         <div className="filter-strip-row">
           <div className="filter-strip">
             <Link
-              href={`/opportunities${buildQs({ topN, registryFilter })}`}
+              href={`/opportunities${buildQs({ topN, registryFilter, emailFilter })}`}
               className={`filter-chip${!campaignFilter ? ' filter-chip-active' : ''}`}
               scroll={false}
             >
@@ -177,7 +211,7 @@ export default async function OpportunitiesPage({
               return (
                 <Link
                   key={c}
-                  href={`/opportunities${buildQs({ campaign: c, topN, registryFilter })}`}
+                  href={`/opportunities${buildQs({ campaign: c, topN, registryFilter, emailFilter })}`}
                   className={`filter-chip${campaignFilter === c ? ' filter-chip-active' : ''}`}
                   scroll={false}
                 >
@@ -192,7 +226,7 @@ export default async function OpportunitiesPage({
         {/* Top N strip — preserves the active campaign + registry filter. */}
         <div className="filter-strip filter-strip-top" style={{ marginTop: 8 }}>
           <Link
-            href={`/opportunities${buildQs({ campaign: campaignFilter, registryFilter })}`}
+            href={`/opportunities${buildQs({ campaign: campaignFilter, registryFilter, emailFilter })}`}
             className={`filter-chip${topN === null ? ' filter-chip-active' : ''}`}
             scroll={false}
           >
@@ -201,7 +235,7 @@ export default async function OpportunitiesPage({
           {TOP_N_VALUES.map((n) => (
             <Link
               key={n}
-              href={`/opportunities${buildQs({ campaign: campaignFilter, topN: n, registryFilter })}`}
+              href={`/opportunities${buildQs({ campaign: campaignFilter, topN: n, registryFilter, emailFilter })}`}
               className={`filter-chip${topN === n ? ' filter-chip-active' : ''}`}
               scroll={false}
             >
@@ -213,7 +247,7 @@ export default async function OpportunitiesPage({
         <div className="filter-strip filter-strip-top" style={{ marginTop: 8 }}>
           <span className="filter-strip-label">Registry</span>
           <Link
-            href={`/opportunities${buildQs({ campaign: campaignFilter, topN })}`}
+            href={`/opportunities${buildQs({ campaign: campaignFilter, topN, emailFilter })}`}
             className={`filter-chip${!registryFilter ? ' filter-chip-active' : ''}`}
             scroll={false}
           >
@@ -230,8 +264,36 @@ export default async function OpportunitiesPage({
           ).map(({ key, label }) => (
             <Link
               key={key}
-              href={`/opportunities${buildQs({ campaign: campaignFilter, topN, registryFilter: key })}`}
+              href={`/opportunities${buildQs({ campaign: campaignFilter, topN, registryFilter: key, emailFilter })}`}
               className={`filter-chip${registryFilter === key ? ' filter-chip-active' : ''}`}
+              scroll={false}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+        {/* Email-confidence filter — preserves the other filters. */}
+        <div className="filter-strip filter-strip-top" style={{ marginTop: 8 }}>
+          <span className="filter-strip-label">Email</span>
+          <Link
+            href={`/opportunities${buildQs({ campaign: campaignFilter, topN, registryFilter })}`}
+            className={`filter-chip${!emailFilter ? ' filter-chip-active' : ''}`}
+            scroll={false}
+          >
+            Any
+          </Link>
+          {(
+            [
+              { key: 'likely_valid', label: 'Likely valid' },
+              { key: 'risky', label: 'Risky' },
+              { key: 'guessed_only', label: 'Guessed only' },
+              { key: 'none', label: 'No usable email' },
+            ] as Array<{ key: EmailFilter; label: string }>
+          ).map(({ key, label }) => (
+            <Link
+              key={key}
+              href={`/opportunities${buildQs({ campaign: campaignFilter, topN, registryFilter, emailFilter: key })}`}
+              className={`filter-chip${emailFilter === key ? ' filter-chip-active' : ''}`}
               scroll={false}
             >
               {label}

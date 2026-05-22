@@ -48,6 +48,7 @@ export function ProofPanel({
       <div className="proof-panel-grid">
         <RegistrySummaryCard companyId={lead.companyId} enrichment={registry} />
         <ContactSummaryCard
+          companyId={lead.companyId}
           contacts={contacts}
           likelyBuyer={intel?.likelyBuyer ?? null}
         />

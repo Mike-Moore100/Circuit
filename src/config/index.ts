@@ -54,6 +54,17 @@ export const config = {
     enabled: (process.env.INTELLIGENCE_ENABLED ?? '1') !== '0',
   },
 
+  // Phase 1 — free email confidence + verification. The risk scoring
+  // stack runs without any external API. SMTP probing is gated off
+  // by default and the verifier is currently an interface-only stub.
+  email: {
+    smtpVerificationEnabled: process.env.SMTP_VERIFICATION_ENABLED === '1',
+    // DNS lookup timeout for MX records (ms).
+    dnsTimeoutMs: envInt('EMAIL_DNS_TIMEOUT_MS', 4000),
+    // Max emails to re-verify per UI-triggered batch.
+    maxPerBatch: envInt('EMAIL_VERIFY_MAX_PER_BATCH', 200),
+  },
+
   // Phase 1 — Companies House (UK registry) enrichment. Strictly optional;
   // the pipeline never depends on it. Disabled by default so US-only
   // deployments don't make pointless calls. The provider also fails

@@ -63,6 +63,19 @@ function runMigrations(db: Db): void {
   addColumnIfMissing(db, 'companies', 'industry_source', 'TEXT');
   addColumnIfMissing(db, 'companies', 'industry_confidence', 'INTEGER');
 
+  // Phase 1 email confidence — contacts gain 9 columns recording
+  // the result of the verification pipeline. Persisted so the
+  // dashboard can read confidence without re-running the check.
+  addColumnIfMissing(db, 'contacts', 'email_verification_status', 'TEXT');
+  addColumnIfMissing(db, 'contacts', 'email_confidence_score', 'INTEGER');
+  addColumnIfMissing(db, 'contacts', 'email_risk_reasons_json', 'TEXT');
+  addColumnIfMissing(db, 'contacts', 'mx_records_json', 'TEXT');
+  addColumnIfMissing(db, 'contacts', 'email_checked_at', 'TEXT');
+  addColumnIfMissing(db, 'contacts', 'is_disposable', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(db, 'contacts', 'is_role_based', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(db, 'contacts', 'is_catch_all_risk', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(db, 'contacts', 'verification_method', 'TEXT');
+
   // Phase 8 — contact discovery
   addColumnIfMissing(db, 'contacts', 'contact_type', 'TEXT');
   addColumnIfMissing(db, 'contacts', 'source', 'TEXT');

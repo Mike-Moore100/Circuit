@@ -3760,6 +3760,49 @@ details.row-details > summary:hover { color: var(--text); }
   text-decoration: underline;
 }
 
+/* Email confidence pill + reasons — surfaces inside ContactSummaryCard
+   on the lead drawer. Never buried; sits next to each email line. */
+.email-conf {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.email-conf-score { font-weight: 500; font-variant-numeric: tabular-nums; }
+.email-conf-ok    { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.email-conf-warn  { background: var(--warning-soft); color: var(--warning); border-color: var(--warning-border); }
+.email-conf-err   { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
+.email-conf-muted { background: var(--bg-muted); color: var(--text-subtle); }
+
+.email-conf-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.email-conf-error { font-size: 11px; color: var(--danger); }
+.email-conf-reasons {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.email-conf-reasons li.pos { color: #047857; }
+.email-conf-reasons li.neg { color: var(--danger); }
+
 /* Compact registry status pill — used on opportunity cards + tables. */
 .registry-badge {
   display: inline-flex;
