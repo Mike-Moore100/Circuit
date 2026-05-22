@@ -81,5 +81,11 @@ export function buildReviewRow(
     primaryCampaign: combined.campaign.primary,
     campaignScores: combined.campaign.scores,
     primaryReason: combined.campaign.primaryReason,
+    // Phase 1 industry tagging — copy through from companies if present.
+    // Older callsites that don't have these fields just see null.
+    discoveryQuery: (company as { discovery_query?: string | null }).discovery_query ?? null,
+    discoveryLocation: (company as { discovery_location?: string | null }).discovery_location ?? null,
+    industrySource: (company as { industry_source?: string | null }).industry_source ?? null,
+    industryConfidence: (company as { industry_confidence?: number | null }).industry_confidence ?? null,
   };
 }

@@ -46,6 +46,10 @@ function makeRow(overrides: Partial<ReviewQueueRow> = {}): ReviewQueueRow {
       REJECT: 0,
     },
     primaryReason: 'workflows match playbook',
+    discoveryQuery: null,
+    discoveryLocation: null,
+    industrySource: null,
+    industryConfidence: null,
     ...overrides,
   };
 }

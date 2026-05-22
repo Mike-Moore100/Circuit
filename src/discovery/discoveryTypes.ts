@@ -31,6 +31,13 @@ export interface RawDiscovery {
   discoveredAt: string;
   validationStatus: ValidationStatus;
   validationReason: string | null;
+  // Phase 1 industry tagging — carry the discovery query metadata forward
+  // so we can persist canonical industry on companies at promotion. The
+  // scheduler fills these from the DiscoveryQuery that produced the row;
+  // connectors don't need to set them themselves.
+  industry?: string | null;
+  discoveryQuery?: string | null;
+  discoveryLocation?: string | null;
 }
 
 export interface DiscoveryQuery {

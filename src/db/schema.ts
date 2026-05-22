@@ -21,7 +21,16 @@ CREATE TABLE IF NOT EXISTS companies (
   -- dashboard, calibration, and intelligence layers never silently
   -- consume mock data in real-mode operations.
   data_origin   TEXT NOT NULL DEFAULT 'REAL',
-  source_type   TEXT NOT NULL DEFAULT 'REAL_SOURCE'
+  source_type   TEXT NOT NULL DEFAULT 'REAL_SOURCE',
+  -- Phase 1 industry tagging — discovery query metadata + the inference
+  -- audit trail. industry is the normalised canonical label; the other
+  -- columns let the dashboard show "queried as accountants leeds" and
+  -- the backfill record how confident we are when the label was
+  -- inferred from title/snippet/website rather than the query.
+  discovery_query     TEXT,
+  discovery_location  TEXT,
+  industry_source     TEXT,
+  industry_confidence INTEGER
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS companies_domain_idx
@@ -286,7 +295,13 @@ CREATE TABLE IF NOT EXISTS raw_discoveries (
   phone              TEXT,
   discovered_at      TEXT NOT NULL,
   validation_status  TEXT NOT NULL,
-  validation_reason  TEXT
+  validation_reason  TEXT,
+  -- Phase 1 industry tagging — carry the discovery query metadata
+  -- forward so the promotion step can persist it on companies and the
+  -- backfill has something to read.
+  industry           TEXT,
+  discovery_query    TEXT,
+  discovery_location TEXT
 );
 
 CREATE INDEX IF NOT EXISTS raw_discoveries_domain_idx     ON raw_discoveries(extracted_domain);

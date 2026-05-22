@@ -49,6 +49,20 @@ function runMigrations(db: Db): void {
      WHERE source = 'mock' AND data_origin = 'REAL'`,
   ).run();
 
+  // Phase 1 industry tagging — capture discovery metadata so we can
+  // populate companies.industry deterministically (rather than leaving
+  // every promoted lead as "(unknown)").
+  addColumnIfMissing(db, 'raw_discoveries', 'industry', 'TEXT');
+  addColumnIfMissing(db, 'raw_discoveries', 'discovery_query', 'TEXT');
+  addColumnIfMissing(db, 'raw_discoveries', 'discovery_location', 'TEXT');
+  addColumnIfMissing(db, 'companies', 'discovery_query', 'TEXT');
+  addColumnIfMissing(db, 'companies', 'discovery_location', 'TEXT');
+  // Records where the industry inference came from + how confident we
+  // were. Lets the dashboard distinguish "tagged from query" (95%)
+  // from "inferred from website body" (60%).
+  addColumnIfMissing(db, 'companies', 'industry_source', 'TEXT');
+  addColumnIfMissing(db, 'companies', 'industry_confidence', 'INTEGER');
+
   // Phase 8 — contact discovery
   addColumnIfMissing(db, 'contacts', 'contact_type', 'TEXT');
   addColumnIfMissing(db, 'contacts', 'source', 'TEXT');

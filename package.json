@@ -33,6 +33,7 @@
     "debug:calibration": "tsx scripts/debugCalibration.ts",
     "run:calibration": "tsx scripts/runCalibrationCli.ts",
     "discover:free": "tsx scripts/discoverFree.ts",
+    "backfill:industries": "tsx scripts/backfillIndustries.ts",
     "validate:free-real": "tsx scripts/validateFreeReal.ts",
     "db:reset": "tsx scripts/resetDb.ts",
     "test": "vitest run",

@@ -187,13 +187,26 @@ export function OpportunityCard({
               {row.industry && (
                 <>
                   <span className="opp-card-sub-sep">·</span>
-                  <span>{row.industry}</span>
+                  <span
+                    className="opp-card-industry"
+                    title={
+                      row.discoveryQuery
+                        ? `queried as "${row.discoveryQuery}"${
+                            row.industrySource
+                              ? ` · inferred from ${row.industrySource}`
+                              : ''
+                          }`
+                        : undefined
+                    }
+                  >
+                    {row.industry}
+                  </span>
                 </>
               )}
-              {row.location && (
+              {(row.location || row.discoveryLocation) && (
                 <>
                   <span className="opp-card-sub-sep">·</span>
-                  <span>{row.location}</span>
+                  <span>{row.location ?? row.discoveryLocation}</span>
                 </>
               )}
             </div>

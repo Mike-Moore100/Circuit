@@ -61,6 +61,11 @@ interface RawJoinedRow extends Company {
   primary_reason: string | null;
   suggested_investigation: string | null;
   review_status: string | null;
+  // Phase 1 industry tagging fields — read via SELECT c.*.
+  discovery_query?: string | null;
+  discovery_location?: string | null;
+  industry_source?: string | null;
+  industry_confidence?: number | null;
 }
 
 export interface InspectionCounts {
@@ -700,6 +705,10 @@ function toRow(raw: RawJoinedRow): ReviewQueueRow {
     primaryCampaign,
     campaignScores: parseCampaignScores(raw.campaign_scores_json),
     primaryReason: raw.primary_reason ?? '',
+    discoveryQuery: raw.discovery_query ?? null,
+    discoveryLocation: raw.discovery_location ?? null,
+    industrySource: raw.industry_source ?? null,
+    industryConfidence: raw.industry_confidence ?? null,
   };
 }
 

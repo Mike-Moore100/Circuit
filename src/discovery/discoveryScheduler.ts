@@ -65,6 +65,9 @@ export interface DiscoveryBatchResult {
     rawUrl: string;
     location: string | null;
     phone: string | null;
+    industry: string | null;
+    discoveryQuery: string | null;
+    discoveryLocation: string | null;
   }>;
 }
 
@@ -103,17 +106,29 @@ export async function runDiscovery(
   );
 
   // ---- 1. Fan out the query matrix across all connectors ---------------
+  // Stamp each raw row with the query's industry + location + the query
+  // string itself. Connectors don't need to know about these fields —
+  // we tag here so every connector inherits the behaviour automatically.
   const allRaw: RawDiscovery[] = [];
   for (const connector of sources) {
     for (const query of opts.queries) {
+      const discoveryQueryString = [query.industry, query.location, ...(query.modifiers ?? [])]
+        .filter(Boolean)
+        .join(' ');
       try {
         const items = await connector.search(query, {
           maxResults: maxPerQuery,
           fetchImpl: opts.fetchImpl,
         });
         for (const item of items) {
-          allRaw.push(item);
-          opts.onRawDiscovery?.(item);
+          const tagged: RawDiscovery = {
+            ...item,
+            industry: item.industry ?? query.industry ?? null,
+            discoveryQuery: item.discoveryQuery ?? discoveryQueryString,
+            discoveryLocation: item.discoveryLocation ?? query.location ?? null,
+          };
+          allRaw.push(tagged);
+          opts.onRawDiscovery?.(tagged);
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -217,6 +232,9 @@ export async function runDiscovery(
       rawUrl: v.rawUrl,
       location: v.location,
       phone: v.phone,
+      industry: v.industry ?? null,
+      discoveryQuery: v.discoveryQuery ?? null,
+      discoveryLocation: v.discoveryLocation ?? null,
     })),
   };
 }

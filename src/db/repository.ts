@@ -698,14 +698,19 @@ export function insertRawDiscovery(
     discoveredAt: string;
     validationStatus: string;
     validationReason: string | null;
+    // Phase 1 industry tagging — optional, falls back to null.
+    industry?: string | null;
+    discoveryQuery?: string | null;
+    discoveryLocation?: string | null;
   },
   db: Database = getDb(),
 ): void {
   db.prepare(
     `INSERT INTO raw_discoveries
        (id, run_id, source, business_name, raw_url, extracted_domain, title,
-        snippet, location, phone, discovered_at, validation_status, validation_reason)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        snippet, location, phone, discovered_at, validation_status, validation_reason,
+        industry, discovery_query, discovery_location)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     randomUUID(),
     input.runId,
@@ -720,6 +725,9 @@ export function insertRawDiscovery(
     input.discoveredAt,
     input.validationStatus,
     input.validationReason,
+    input.industry ?? null,
+    input.discoveryQuery ?? null,
+    input.discoveryLocation ?? null,
   );
 }
 
@@ -1019,11 +1027,18 @@ export function listValidatedDiscoveriesAwaitingPromotion(
   snippet: string | null;
   location: string | null;
   phone: string | null;
+  // Phase 1 industry tagging — the promoter normalises these into
+  // companies.industry. They can all be null on older rows that pre-date
+  // the metadata capture; the promoter handles that gracefully.
+  industry: string | null;
+  discovery_query: string | null;
+  discovery_location: string | null;
 }> {
   return db
     .prepare(
       `SELECT rd.id, rd.extracted_domain AS domain, rd.business_name, rd.source,
-              rd.title, rd.snippet, rd.location, rd.phone
+              rd.title, rd.snippet, rd.location, rd.phone,
+              rd.industry, rd.discovery_query, rd.discovery_location
        FROM raw_discoveries rd
        LEFT JOIN qualification_queue qq ON qq.domain = rd.extracted_domain
        WHERE rd.validation_status = 'valid'
@@ -1041,6 +1056,9 @@ export function listValidatedDiscoveriesAwaitingPromotion(
     snippet: string | null;
     location: string | null;
     phone: string | null;
+    industry: string | null;
+    discovery_query: string | null;
+    discovery_location: string | null;
   }>;
 }
 
@@ -1048,6 +1066,12 @@ export function listValidatedDiscoveriesAwaitingPromotion(
 // keyed on (domain, source). Returns the company id.
 // Discovery sources are real by construction (DuckDuckGo SERP, directory
 // crawlers); the promotion bridge always inserts as REAL.
+//
+// Phase 1 industry tagging: when the promoter has the discovery query
+// metadata, it passes it through here so the companies row carries
+// (industry, discovery_query, discovery_location, industry_source,
+// industry_confidence) from creation. The promoter normalises the
+// industry first — this layer just persists what it's given.
 export function upsertCompanyFromPromotion(
   input: {
     name: string;
@@ -1055,22 +1079,68 @@ export function upsertCompanyFromPromotion(
     websiteUrl: string;
     source: string;
     location: string | null;
+    industry?: string | null;
+    discoveryQuery?: string | null;
+    discoveryLocation?: string | null;
+    industrySource?: string | null;
+    industryConfidence?: number | null;
   },
   db: Database = getDb(),
 ): string {
   const existing = db
-    .prepare('SELECT id FROM companies WHERE domain = ?')
-    .get(input.domain) as { id: string } | undefined;
-  if (existing) return existing.id;
+    .prepare('SELECT id, industry FROM companies WHERE domain = ?')
+    .get(input.domain) as { id: string; industry: string | null } | undefined;
+  if (existing) {
+    // Idempotent — but if the original row was promoted before we
+    // tracked industry, patch it now so backfills aren't always
+    // necessary. We only ever fill missing fields; never overwrite
+    // an existing industry tag (the operator may have hand-edited it).
+    if (!existing.industry && input.industry) {
+      db.prepare(
+        `UPDATE companies
+            SET industry            = COALESCE(industry, ?),
+                discovery_query     = COALESCE(discovery_query, ?),
+                discovery_location  = COALESCE(discovery_location, ?),
+                industry_source     = COALESCE(industry_source, ?),
+                industry_confidence = COALESCE(industry_confidence, ?),
+                updated_at          = ?
+          WHERE id = ?`,
+      ).run(
+        input.industry,
+        input.discoveryQuery ?? null,
+        input.discoveryLocation ?? input.location ?? null,
+        input.industrySource ?? 'query',
+        input.industryConfidence ?? null,
+        now(),
+        existing.id,
+      );
+    }
+    return existing.id;
+  }
   const id = randomUUID();
   const ts = now();
   db.prepare(
     `INSERT INTO companies (id, name, domain, website_url, industry, location,
                             size_estimate, source, source_url, status, created_at, updated_at,
-                            data_origin, source_type)
-     VALUES (?, ?, ?, ?, NULL, ?, NULL, ?, NULL, 'review', ?, ?,
-             'REAL', 'REAL_SOURCE')`,
-  ).run(id, input.name, input.domain, input.websiteUrl, input.location, input.source, ts, ts);
+                            data_origin, source_type, discovery_query, discovery_location,
+                            industry_source, industry_confidence)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, 'review', ?, ?,
+             'REAL', 'REAL_SOURCE', ?, ?, ?, ?)`,
+  ).run(
+    id,
+    input.name,
+    input.domain,
+    input.websiteUrl,
+    input.industry ?? null,
+    input.location,
+    input.source,
+    ts,
+    ts,
+    input.discoveryQuery ?? null,
+    input.discoveryLocation ?? input.location ?? null,
+    input.industrySource ?? (input.industry ? 'query' : null),
+    input.industryConfidence ?? null,
+  );
   return id;
 }
 

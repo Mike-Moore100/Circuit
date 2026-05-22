@@ -233,4 +233,11 @@ export interface ReviewQueueRow {
     number
   >;
   primaryReason: string;
+  // Phase 1 industry tagging — surfaced on the card sub-line and on the
+  // drawer so the operator can see where the lead came from. Null on
+  // pre-Phase-1 rows that haven't been backfilled yet.
+  discoveryQuery: string | null;
+  discoveryLocation: string | null;
+  industrySource: string | null;
+  industryConfidence: number | null;
 }

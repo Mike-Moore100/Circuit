@@ -8,6 +8,10 @@ import {
   type CorpusCompany,
   type CorpusHealthReport,
 } from '../../src/discovery/corpusHealth';
+import {
+  isCanonicalIndustry,
+  normaliseIndustry,
+} from '../../src/discovery/industryNormalizer';
 
 // Industries we always want to know about even with a small corpus.
 // Pulled from the Phase 1 Discovery Diversity brief.
@@ -48,13 +52,26 @@ export function getCorpusHealthReport(): CorpusHealthReport {
     opportunity_score: number | null;
   }>;
 
-  const companies: CorpusCompany[] = rows.map((r) => ({
-    industry: r.industry,
-    source: r.source,
-    primaryCampaign: r.primary_campaign,
-    sizeEstimate: r.size_estimate,
-    opportunityScore: r.opportunity_score,
-  }));
+  // Defensive normalisation — most rows will already carry a canonical
+  // industry label (the promoter normalises before persisting), but
+  // pre-Phase-1 rows or hand-edited values can drift. Running every
+  // industry string through normaliseIndustry one more time guarantees
+  // the dashboard never displays the same industry under two different
+  // labels.
+  const companies: CorpusCompany[] = rows.map((r) => {
+    let industry = r.industry;
+    if (industry && !isCanonicalIndustry(industry)) {
+      const renorm = normaliseIndustry(industry, 'name');
+      if (renorm.industry) industry = renorm.industry;
+    }
+    return {
+      industry,
+      source: r.source,
+      primaryCampaign: r.primary_campaign,
+      sizeEstimate: r.size_estimate,
+      opportunityScore: r.opportunity_score,
+    };
+  });
 
   return computeCorpusHealth(companies, {
     alwaysFlagMissing: ALWAYS_FLAG_MISSING,

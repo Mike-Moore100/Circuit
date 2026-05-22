@@ -18,6 +18,10 @@ import {
 import { evaluatePromotion } from './qualificationGate';
 import { enqueueQualification } from './promotionQueue';
 import type { GateDecision } from './promotionTypes';
+import {
+  normaliseFromCandidates,
+  type NormalizationResult,
+} from '../discovery/industryNormalizer';
 
 export interface PromotionRunOptions {
   // How many candidates to consider per run.
@@ -80,6 +84,17 @@ export function promoteDiscoveryToCompanies(
 
     if (decision.decision === 'PROMOTE') {
       try {
+        // Phase 1 industry tagging — try each available field in
+        // priority order. Discovery query is the strongest signal
+        // (it's the operator's stated intent), title and snippet are
+        // weaker because SERP results contain industry adjacents.
+        const inferred: NormalizationResult = normaliseFromCandidates([
+          { text: c.industry, source: 'query' },
+          { text: c.discovery_query, source: 'query' },
+          { text: c.title, source: 'title' },
+          { text: c.snippet, source: 'snippet' },
+          { text: c.business_name, source: 'name' },
+        ]);
         const companyId = upsertCompanyFromPromotion(
           {
             name: c.business_name,
@@ -87,6 +102,11 @@ export function promoteDiscoveryToCompanies(
             websiteUrl: `https://${c.domain}`,
             source: c.source,
             location: c.location,
+            industry: inferred.industry ?? null,
+            discoveryQuery: c.discovery_query ?? null,
+            discoveryLocation: c.discovery_location ?? c.location ?? null,
+            industrySource: inferred.source ?? null,
+            industryConfidence: inferred.industry ? inferred.confidence : null,
           },
           db,
         );
