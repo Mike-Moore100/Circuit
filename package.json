@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "seed": "tsx scripts/seed.ts",
+    "seed:demo": "tsx scripts/seedDemo.ts",
+    "validate:real-mode": "tsx scripts/validateRealMode.ts",
     "pipeline": "tsx scripts/pipeline.ts",
     "pipeline:google-maps": "tsx scripts/runGoogleMaps.ts",
     "inspect:websites": "tsx scripts/inspectWebsites.ts",
@@ -27,6 +28,8 @@
     "run:discovery": "tsx scripts/runDiscoveryCli.ts",
     "debug:promotion": "tsx scripts/debugPromotion.ts",
     "run:promotion": "tsx scripts/runPromotionCli.ts",
+    "debug:calibration": "tsx scripts/debugCalibration.ts",
+    "run:calibration": "tsx scripts/runCalibrationCli.ts",
     "db:reset": "tsx scripts/resetDb.ts",
     "test": "vitest run",
     "test:watch": "vitest"

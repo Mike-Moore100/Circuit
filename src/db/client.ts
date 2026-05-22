@@ -37,6 +37,18 @@ function runMigrations(db: Db): void {
   addColumnIfMissing(db, 'lead_scores', 'primary_reason', 'TEXT');
   addColumnIfMissing(db, 'lead_scores', 'suggested_investigation', 'TEXT');
 
+  // Phase 14.1 — data-origin correctness. Every company carries the
+  // mode it belongs to so the dashboard can keep mock/demo/test data
+  // out of real-mode operations.
+  addColumnIfMissing(db, 'companies', 'data_origin', "TEXT NOT NULL DEFAULT 'REAL'");
+  addColumnIfMissing(db, 'companies', 'source_type', "TEXT NOT NULL DEFAULT 'REAL_SOURCE'");
+  // One-shot retag: pre-existing rows seeded by the mock connector get
+  // DEMO/MOCK_SOURCE so this migration leaves the DB in a clean state.
+  db.prepare(
+    `UPDATE companies SET data_origin = 'DEMO', source_type = 'MOCK_SOURCE'
+     WHERE source = 'mock' AND data_origin = 'REAL'`,
+  ).run();
+
   // Phase 8 — contact discovery
   addColumnIfMissing(db, 'contacts', 'contact_type', 'TEXT');
   addColumnIfMissing(db, 'contacts', 'source', 'TEXT');

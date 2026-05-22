@@ -6,6 +6,7 @@
 
 import { config } from '../../src/config/index';
 import { getDb } from '../../src/db/client';
+import { visibleOrigins } from '../../src/db/dataMode';
 import {
   getAiAnalysisStats,
   getDiscoveryStats,
@@ -31,14 +32,21 @@ export function getOverviewData() {
     ...aiRaw,
     dailyLimitUsd: config.aiAnalysis.dailyCostLimitUsd,
   };
+  // Phase 14.1 — review-queue / totals count only mode-visible companies.
+  const origins = visibleOrigins();
+  const placeholders = origins.map(() => '?').join(',');
   const reviewQueue = (db
     .prepare(
-      `SELECT COUNT(*) AS n FROM review_queue WHERE status NOT IN ('rejected','archived')`,
+      `SELECT COUNT(*) AS n
+         FROM review_queue r
+         JOIN companies c ON c.id = r.company_id
+        WHERE r.status NOT IN ('rejected','archived')
+          AND c.data_origin IN (${placeholders})`,
     )
-    .get() as { n: number }).n;
+    .get(...origins) as { n: number }).n;
   const totalCompanies = (db
-    .prepare(`SELECT COUNT(*) AS n FROM companies`)
-    .get() as { n: number }).n;
+    .prepare(`SELECT COUNT(*) AS n FROM companies WHERE data_origin IN (${placeholders})`)
+    .get(...origins) as { n: number }).n;
   const topOpps = listOpportunityIntelligence(db, { limit: 5 });
   return {
     discovery,
@@ -67,15 +75,19 @@ export function getDiscoveryPageData() {
 // ---------------------------------------------------------------------------
 export function getQualificationPageData() {
   const db = getDb();
+  const origins = visibleOrigins();
+  const placeholders = origins.map(() => '?').join(',');
   const inspectionBase = getInspectionStats(db);
-  // Extra inspection signals — count distinct companies that have each
-  // verified.* signal type in the signals table.
+  // Extra inspection signals — count distinct mode-visible companies
+  // that have each verified.* signal type.
   const sigCount = (type: string): number => {
     const row = db
       .prepare(
-        `SELECT COUNT(DISTINCT company_id) AS n FROM signals WHERE type = ?`,
+        `SELECT COUNT(DISTINCT s.company_id) AS n FROM signals s
+         JOIN companies c ON c.id = s.company_id
+         WHERE s.type = ? AND c.data_origin IN (${placeholders})`,
       )
-      .get(type) as { n: number };
+      .get(type, ...origins) as { n: number };
     return row.n;
   };
   const inspection = {
@@ -88,12 +100,14 @@ export function getQualificationPageData() {
   const contacts = db.prepare(`
     SELECT
       COUNT(*) AS total,
-      SUM(CASE WHEN email IS NOT NULL THEN 1 ELSE 0 END) AS withEmail,
-      SUM(CASE WHEN email_status = 'extracted' THEN 1 ELSE 0 END) AS extractedEmail,
-      SUM(CASE WHEN email_status = 'guessed' THEN 1 ELSE 0 END) AS guessedEmail,
-      SUM(CASE WHEN source = 'playwright' THEN 1 ELSE 0 END) AS playwrightContacts
-    FROM contacts
-  `).get() as {
+      SUM(CASE WHEN ct.email IS NOT NULL THEN 1 ELSE 0 END) AS withEmail,
+      SUM(CASE WHEN ct.email_status = 'extracted' THEN 1 ELSE 0 END) AS extractedEmail,
+      SUM(CASE WHEN ct.email_status = 'guessed' THEN 1 ELSE 0 END) AS guessedEmail,
+      SUM(CASE WHEN ct.source = 'playwright' THEN 1 ELSE 0 END) AS playwrightContacts
+    FROM contacts ct
+    JOIN companies c ON c.id = ct.company_id
+    WHERE c.data_origin IN (${placeholders})
+  `).get(...origins) as {
     total: number;
     withEmail: number;
     extractedEmail: number;
@@ -102,13 +116,15 @@ export function getQualificationPageData() {
   };
   const evidence = db.prepare(`
     SELECT
-      COUNT(DISTINCT company_id) AS companies,
-      SUM(CASE WHEN evidence_type = 'summary' AND screenshot_path IS NOT NULL THEN 1 ELSE 0 END) AS desktopShots,
-      SUM(CASE WHEN evidence_type = 'summary' AND mobile_screenshot_path IS NOT NULL THEN 1 ELSE 0 END) AS mobileShots,
-      SUM(CASE WHEN evidence_type LIKE 'visual.%' THEN 1 ELSE 0 END) AS visualIssues,
-      SUM(CASE WHEN evidence_type LIKE 'operational.%' THEN 1 ELSE 0 END) AS operationalClues
-    FROM lead_evidence
-  `).get() as {
+      COUNT(DISTINCT le.company_id) AS companies,
+      SUM(CASE WHEN le.evidence_type = 'summary' AND le.screenshot_path IS NOT NULL THEN 1 ELSE 0 END) AS desktopShots,
+      SUM(CASE WHEN le.evidence_type = 'summary' AND le.mobile_screenshot_path IS NOT NULL THEN 1 ELSE 0 END) AS mobileShots,
+      SUM(CASE WHEN le.evidence_type LIKE 'visual.%' THEN 1 ELSE 0 END) AS visualIssues,
+      SUM(CASE WHEN le.evidence_type LIKE 'operational.%' THEN 1 ELSE 0 END) AS operationalClues
+    FROM lead_evidence le
+    JOIN companies c ON c.id = le.company_id
+    WHERE c.data_origin IN (${placeholders})
+  `).get(...origins) as {
     companies: number;
     desktopShots: number;
     mobileShots: number;
@@ -124,6 +140,8 @@ export function getQualificationPageData() {
 // ---------------------------------------------------------------------------
 export function getCampaignsPageData() {
   const db = getDb();
+  const origins = visibleOrigins();
+  const placeholders = origins.map(() => '?').join(',');
   const rows = db.prepare(`
     SELECT
       ls.primary_campaign AS campaign,
@@ -137,8 +155,9 @@ export function getCampaignsPageData() {
     JOIN companies c ON c.id = ls.company_id
     LEFT JOIN opportunity_intelligence oi ON oi.company_id = c.id
     WHERE c.status NOT IN ('rejected','archived')
+      AND c.data_origin IN (${placeholders})
     GROUP BY ls.primary_campaign
-  `).all() as Array<{
+  `).all(...origins) as Array<{
     campaign: Campaign | null;
     total: number;
     avg_score: number | null;
@@ -155,16 +174,18 @@ export function getCampaignsPageData() {
 // ---------------------------------------------------------------------------
 export function getReviewPageData() {
   const db = getDb();
+  const origins = visibleOrigins();
+  const placeholders = origins.map(() => '?').join(',');
   const learning = buildLearningReport(db);
   const rejected = db.prepare(`
     SELECT c.name, c.industry, c.location, ls.final_score, ls.primary_campaign
     FROM lead_scores ls
     JOIN companies c ON c.id = ls.company_id
-    WHERE ls.primary_campaign = 'REJECT'
-       OR ls.priority = 'Reject'
+    WHERE (ls.primary_campaign = 'REJECT' OR ls.priority = 'Reject')
+      AND c.data_origin IN (${placeholders})
     ORDER BY ls.created_at DESC
     LIMIT 25
-  `).all() as Array<{
+  `).all(...origins) as Array<{
     name: string;
     industry: string | null;
     location: string | null;

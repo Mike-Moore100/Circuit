@@ -15,13 +15,20 @@ CREATE TABLE IF NOT EXISTS companies (
   source_url    TEXT,
   status        TEXT NOT NULL DEFAULT 'new',
   created_at    TEXT NOT NULL,
-  updated_at    TEXT NOT NULL
+  updated_at    TEXT NOT NULL,
+  -- Phase 14.1 — data-origin correctness. data_origin separates REAL
+  -- discovered companies from DEMO seed/mock and TEST fixtures so the
+  -- dashboard, calibration, and intelligence layers never silently
+  -- consume mock data in real-mode operations.
+  data_origin   TEXT NOT NULL DEFAULT 'REAL',
+  source_type   TEXT NOT NULL DEFAULT 'REAL_SOURCE'
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS companies_domain_idx
   ON companies(domain) WHERE domain IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS companies_status_idx ON companies(status);
+CREATE INDEX IF NOT EXISTS companies_status_idx      ON companies(status);
+CREATE INDEX IF NOT EXISTS companies_data_origin_idx ON companies(data_origin);
 
 CREATE TABLE IF NOT EXISTS contacts (
   id           TEXT PRIMARY KEY,
@@ -294,4 +301,36 @@ CREATE UNIQUE INDEX IF NOT EXISTS qualification_queue_domain_idx ON qualificatio
 CREATE INDEX IF NOT EXISTS qualification_queue_status_idx        ON qualification_queue(status);
 CREATE INDEX IF NOT EXISTS qualification_queue_priority_idx      ON qualification_queue(priority DESC);
 CREATE INDEX IF NOT EXISTS qualification_queue_created_at_idx    ON qualification_queue(created_at DESC);
+
+-- Phase 14: Calibration Intelligence. Snapshots are persisted per run so
+-- the dashboard can compare over time. Per-signal performance gets a
+-- separate flat table so the operator can query "what's the precision
+-- of verified.has_working_website?" without scanning JSON.
+CREATE TABLE IF NOT EXISTS calibration_insights (
+  id            TEXT PRIMARY KEY,
+  insight_type  TEXT NOT NULL,
+  title         TEXT NOT NULL,
+  description   TEXT NOT NULL,
+  confidence    INTEGER NOT NULL,
+  evidence_json TEXT NOT NULL,
+  created_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS calibration_insights_type_idx       ON calibration_insights(insight_type);
+CREATE INDEX IF NOT EXISTS calibration_insights_created_at_idx ON calibration_insights(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS signal_performance (
+  id                  TEXT PRIMARY KEY,
+  signal_name         TEXT NOT NULL UNIQUE,
+  reviewed_count      INTEGER NOT NULL DEFAULT 0,
+  positive_outcomes   INTEGER NOT NULL DEFAULT 0,
+  negative_outcomes   INTEGER NOT NULL DEFAULT 0,
+  false_positive_count INTEGER NOT NULL DEFAULT 0,
+  false_reject_count  INTEGER NOT NULL DEFAULT 0,
+  precision_pct       REAL,
+  confidence          INTEGER NOT NULL DEFAULT 0,
+  updated_at          TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS signal_performance_conf_idx ON signal_performance(confidence DESC);
 `;

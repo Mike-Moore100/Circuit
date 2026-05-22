@@ -59,6 +59,15 @@ export const config = {
   // available, so the rest of the pipeline still has data to chew on.
   freeSourceMode: process.env.FREE_SOURCE_MODE === '1',
 
+  // Phase 14.1 — data mode correctness.
+  // DEMO_MODE=1 makes the dashboard include DEMO-origin companies in
+  // addition to REAL ones. Default: REAL only.
+  demoMode: process.env.DEMO_MODE === '1',
+  // ALLOW_MOCK_DATA=1 is required before any mock seed / mock source
+  // can run. Belt-and-braces so the operator never accidentally runs
+  // the mock connector in production.
+  allowMockData: process.env.ALLOW_MOCK_DATA === '1',
+
   evidence: {
     enabled: (process.env.EVIDENCE_ENABLED ?? '1') !== '0',
     autoRun: process.env.EVIDENCE_AUTO_RUN === '1',

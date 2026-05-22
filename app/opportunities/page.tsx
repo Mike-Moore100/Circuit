@@ -13,7 +13,9 @@ import {
 import { Avatar } from '../_components/Avatar';
 import { LeadDrawer } from '../_components/LeadDrawer';
 import { PageHeader } from '../_components/PageHeader';
+import { RealModeEmpty } from '../_components/RealModeEmpty';
 import { ReviewActions } from '../_components/ReviewActions';
+import { currentDataMode } from '../../src/db/dataMode';
 import { CAMPAIGN_LABEL, type Campaign } from '../../src/scoring/campaignTypes';
 import type { ReviewQueueRow } from '../../src/types';
 
@@ -108,6 +110,9 @@ export default async function OpportunitiesPage({
 
       {/* ---- The lead table ----------------------------------------- */}
       <section className="section">
+        {visibleRows.length === 0 && !campaignFilter && currentDataMode() === 'REAL' ? (
+          <RealModeEmpty />
+        ) : (
         <div className="panel">
           {visibleRows.length === 0 ? (
             <div className="empty">
@@ -115,7 +120,7 @@ export default async function OpportunitiesPage({
               {campaignFilter ? (
                 <>Try the <Link href="/opportunities">All</Link> filter.</>
               ) : (
-                <>Run <code>npm run seed</code> or trigger a discovery run.</>
+                <>Run <code>npm run run:discovery</code> or trigger a real pipeline source.</>
               )}
             </div>
           ) : (
@@ -190,6 +195,7 @@ export default async function OpportunitiesPage({
             </table>
           )}
         </div>
+        )}
       </section>
 
       {/* ---- Side drawer (URL-driven) ------------------------------- */}

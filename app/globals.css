@@ -474,6 +474,52 @@ code {
 .discovery-stat-value[data-tone='success'] { color: var(--success); }
 .discovery-stat-value[data-tone='accent']  { color: var(--accent); }
 
+/* Data-mode pill — sidebar badge showing REAL vs DEMO at a glance. */
+.data-mode-pill {
+  margin-left: auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid;
+  cursor: help;
+}
+.data-mode-real {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: var(--success-border);
+}
+.data-mode-demo {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: var(--warning-border);
+}
+
+/* Real-mode empty state — clear message + suggested next action. */
+.real-mode-empty {
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+}
+.real-mode-empty h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text);
+}
+.real-mode-empty p {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.real-mode-empty code {
+  background: var(--bg-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
 /* Bottleneck callout — the one prominent attention-grab on Overview /
    Discovery when something needs human eyes. */
 .bottleneck-callout {

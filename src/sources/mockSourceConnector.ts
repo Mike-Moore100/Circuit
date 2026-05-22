@@ -260,6 +260,9 @@ export const MOCK_LEADS: RawLead[] = [
 
 export const mockSourceConnector: SourceConnector = {
   name: 'mock',
+  // Phase 14.1 — mock data is DEMO-origin. Companies inserted via this
+  // connector are filtered out of REAL-mode dashboard views.
+  dataOrigin: 'DEMO',
   async fetchLeads(options: SourceFetchOptions = {}): Promise<SourceFetchResult> {
     let leads = MOCK_LEADS.slice();
     if (options.industry) {

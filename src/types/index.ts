@@ -59,6 +59,12 @@ export interface SourceFetchResult {
 
 export interface SourceConnector {
   name: string;
+  // Phase 14.1 — connectors declare whether they emit REAL or DEMO data.
+  // Pipeline tags every inserted company accordingly. Mock connectors
+  // declare 'DEMO'; real sources (Google Places, public directories,
+  // SERP) declare 'REAL'. Defaults to 'REAL' for back-compat — anything
+  // demo-y must be explicit.
+  dataOrigin?: 'REAL' | 'DEMO';
   fetchLeads(options?: SourceFetchOptions): Promise<SourceFetchResult>;
 }
 

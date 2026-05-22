@@ -98,6 +98,9 @@ const NAV: NavItemDef[] = [
   { href: '/opportunities', label: 'Opportunities', icon: icons.opportunities },
   { href: '/campaigns', label: 'Campaigns', icon: icons.campaigns },
   { href: '/review', label: 'Review', icon: icons.review },
+  // Phase 14 — calibration sits between Review (where feedback is captured)
+  // and Intelligence (where per-lead scoring is debugged).
+  { href: '/calibration', label: 'Calibration', icon: icons.intelligence },
   { href: '/intelligence', label: 'Intelligence', icon: icons.intelligence },
   { href: '/sources', label: 'Sources', icon: icons.sources },
   { href: '/queue', label: 'Queue', icon: icons.queue },
@@ -112,6 +115,7 @@ interface SidebarBadges {
   reviewQueue?: number;
   qualificationPending?: number;
   discoveryToday?: number;
+  dataMode?: 'REAL' | 'DEMO';
 }
 
 export function Sidebar() {
@@ -141,6 +145,18 @@ export function Sidebar() {
       <div className="sidebar-brand">
         <div className="brand-mark">C</div>
         <div className="sidebar-brand-name">Circuit</div>
+        {badges.dataMode && (
+          <span
+            className={`data-mode-pill data-mode-${badges.dataMode.toLowerCase()}`}
+            title={
+              badges.dataMode === 'REAL'
+                ? 'Real data only. DEMO leads are filtered out.'
+                : 'DEMO mode — dashboard includes seed/mock data.'
+            }
+          >
+            {badges.dataMode}
+          </span>
+        )}
       </div>
 
       <nav className="nav-stack">

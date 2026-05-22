@@ -471,6 +471,12 @@ function toRow(raw: RawJoinedRow): ReviewQueueRow {
 export async function getDashboardData(): Promise<DashboardData> {
   const db = getDb();
 
+  // Phase 14.1 — restrict to mode-visible companies so the Opportunities
+  // view (and everything downstream of getDashboardData) never silently
+  // mixes mock/demo data into real-mode operations.
+  const { visibleOrigins } = await import('../../src/db/dataMode');
+  const origins = visibleOrigins();
+  const placeholders = origins.map(() => '?').join(',');
   // Latest score per company.
   const rows = db
     .prepare(
@@ -495,9 +501,10 @@ export async function getDashboardData(): Promise<DashboardData> {
          LEFT JOIN latest l        ON l.company_id = c.id
          LEFT JOIN lead_scores s   ON s.company_id = c.id AND s.created_at = l.created_at
          LEFT JOIN review_queue r  ON r.company_id = c.id
+        WHERE c.data_origin IN (${placeholders})
         ORDER BY COALESCE(s.final_score, 0) DESC`,
     )
-    .all() as RawJoinedRow[];
+    .all(...origins) as RawJoinedRow[];
 
   const all = rows.map(toRow);
   // Admission is now driven by campaign, not priority.

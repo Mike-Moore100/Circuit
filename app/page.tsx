@@ -5,8 +5,10 @@
 import Link from 'next/link';
 import { PageHeader } from './_components/PageHeader';
 import { PipelineFlow } from './_components/PipelineFlow';
+import { RealModeEmpty } from './_components/RealModeEmpty';
 import { getOverviewData } from './_lib/pageData';
 import { getDb } from '../src/db/client';
+import { currentDataMode } from '../src/db/dataMode';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,12 +121,28 @@ export default async function OverviewPage() {
   const failed = data.qualification.byStatus.FAILED ?? 0;
   const top = bottleneck(data);
   const activity = recentActivity();
+  const mode = currentDataMode();
+
+  // Real-mode + nothing in the system — show one clean empty state.
+  if (mode === 'REAL' && data.totalCompanies === 0) {
+    return (
+      <>
+        <PageHeader
+          title="Overview"
+          subtitle="Real mode — no demo data is being shown."
+        />
+        <section className="section">
+          <RealModeEmpty />
+        </section>
+      </>
+    );
+  }
 
   return (
     <>
       <PageHeader
         title="Overview"
-        subtitle={`${data.totalCompanies} companies · ${data.reviewQueue} in review queue`}
+        subtitle={`${data.totalCompanies} companies · ${data.reviewQueue} in review queue · ${mode} mode`}
       />
 
       {/* ---- Pipeline flow — 3 core stages -------------------------- */}

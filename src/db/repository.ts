@@ -11,6 +11,7 @@ import type {
   SourceRun,
 } from '../types/index';
 import { getDb } from './client';
+import { visibleOrigins } from './dataMode';
 
 function now(): string {
   return new Date().toISOString();
@@ -34,9 +35,19 @@ export interface UpsertResult {
   created: boolean;
 }
 
-export function upsertCompanyFromLead(lead: RawLead, db: Database = getDb()): UpsertResult {
+export function upsertCompanyFromLead(
+  lead: RawLead,
+  db: Database = getDb(),
+  options: { dataOrigin?: 'REAL' | 'DEMO' | 'TEST'; sourceType?: 'REAL_SOURCE' | 'MOCK_SOURCE' | 'MANUAL_TEST' } = {},
+): UpsertResult {
   const domain = extractDomain(lead.websiteUrl);
   const existing = findCompanyByDomainOrName(lead.companyName, domain, db);
+
+  // Phase 14.1 — every insert carries an explicit origin. Callers that
+  // don't specify default to REAL/REAL_SOURCE; the mock connector + seed
+  // scripts pass DEMO/MOCK_SOURCE explicitly.
+  const dataOrigin = options.dataOrigin ?? 'REAL';
+  const sourceType = options.sourceType ?? 'REAL_SOURCE';
 
   if (existing) {
     const updated: Company = {
@@ -78,11 +89,13 @@ export function upsertCompanyFromLead(lead: RawLead, db: Database = getDb()): Up
   db.prepare(
     `INSERT INTO companies
        (id, name, domain, website_url, industry, location, size_estimate,
-        source, source_url, status, created_at, updated_at)
+        source, source_url, status, created_at, updated_at,
+        data_origin, source_type)
      VALUES
        (@id, @name, @domain, @website_url, @industry, @location, @size_estimate,
-        @source, @source_url, @status, @created_at, @updated_at)`,
-  ).run(company);
+        @source, @source_url, @status, @created_at, @updated_at,
+        @data_origin, @source_type)`,
+  ).run({ ...company, data_origin: dataOrigin, source_type: sourceType });
   return { company, created: true };
 }
 
@@ -569,13 +582,21 @@ export function getOpportunityIntelligence(
 
 export function listOpportunityIntelligence(
   db: Database = getDb(),
-  options: { limit?: number; priority?: string } = {},
+  options: { limit?: number; priority?: string; includeAll?: boolean } = {},
 ): OpportunityIntelligenceRow[] {
   const where: string[] = [];
   const args: unknown[] = [];
   if (options.priority) {
     where.push('human_attention_priority = ?');
     args.push(options.priority);
+  }
+  // Phase 14.1 — filter by data mode unless the caller explicitly asks
+  // for the full audit view.
+  if (!options.includeAll) {
+    
+    const origins = visibleOrigins();
+    where.push(`c.data_origin IN (${origins.map(() => '?').join(',')})`);
+    args.push(...origins);
   }
   const sql = `
     SELECT oi.*
@@ -1025,6 +1046,8 @@ export function listValidatedDiscoveriesAwaitingPromotion(
 
 // Plain upsert path used by the promoter — creates a companies row
 // keyed on (domain, source). Returns the company id.
+// Discovery sources are real by construction (DuckDuckGo SERP, directory
+// crawlers); the promotion bridge always inserts as REAL.
 export function upsertCompanyFromPromotion(
   input: {
     name: string;
@@ -1043,10 +1066,197 @@ export function upsertCompanyFromPromotion(
   const ts = now();
   db.prepare(
     `INSERT INTO companies (id, name, domain, website_url, industry, location,
-                            size_estimate, source, source_url, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, NULL, ?, NULL, ?, NULL, 'review', ?, ?)`,
+                            size_estimate, source, source_url, status, created_at, updated_at,
+                            data_origin, source_type)
+     VALUES (?, ?, ?, ?, NULL, ?, NULL, ?, NULL, 'review', ?, ?,
+             'REAL', 'REAL_SOURCE')`,
   ).run(id, input.name, input.domain, input.websiteUrl, input.location, input.source, ts, ts);
   return id;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 14 — Calibration Intelligence
+// ---------------------------------------------------------------------------
+export interface CalibrationInsightRow {
+  id: string;
+  insight_type: string;
+  title: string;
+  description: string;
+  confidence: number;
+  evidence_json: string;
+  created_at: string;
+}
+
+export interface SignalPerformanceRow {
+  id: string;
+  signal_name: string;
+  reviewed_count: number;
+  positive_outcomes: number;
+  negative_outcomes: number;
+  false_positive_count: number;
+  false_reject_count: number;
+  precision_pct: number | null;
+  confidence: number;
+  updated_at: string;
+}
+
+export function clearCalibrationInsights(db: Database = getDb()): void {
+  db.prepare(`DELETE FROM calibration_insights`).run();
+}
+
+export function insertCalibrationInsight(
+  input: {
+    type: string;
+    title: string;
+    description: string;
+    confidence: number;
+    evidence: Record<string, unknown>;
+  },
+  db: Database = getDb(),
+): void {
+  db.prepare(
+    `INSERT INTO calibration_insights
+       (id, insight_type, title, description, confidence, evidence_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    randomUUID(),
+    input.type,
+    input.title,
+    input.description,
+    input.confidence,
+    JSON.stringify(input.evidence),
+    now(),
+  );
+}
+
+export function listCalibrationInsights(
+  db: Database = getDb(),
+  limit = 30,
+): CalibrationInsightRow[] {
+  return db
+    .prepare(
+      `SELECT * FROM calibration_insights ORDER BY confidence DESC, created_at DESC LIMIT ?`,
+    )
+    .all(limit) as CalibrationInsightRow[];
+}
+
+export function upsertSignalPerformance(
+  input: {
+    signalName: string;
+    reviewedCount: number;
+    positiveOutcomes: number;
+    negativeOutcomes: number;
+    falsePositiveCount: number;
+    falseRejectCount: number;
+    precision: number | null;
+    confidence: number;
+  },
+  db: Database = getDb(),
+): void {
+  db.prepare(
+    `INSERT INTO signal_performance
+       (id, signal_name, reviewed_count, positive_outcomes, negative_outcomes,
+        false_positive_count, false_reject_count, precision_pct, confidence, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(signal_name) DO UPDATE SET
+       reviewed_count        = excluded.reviewed_count,
+       positive_outcomes     = excluded.positive_outcomes,
+       negative_outcomes     = excluded.negative_outcomes,
+       false_positive_count  = excluded.false_positive_count,
+       false_reject_count    = excluded.false_reject_count,
+       precision_pct         = excluded.precision_pct,
+       confidence            = excluded.confidence,
+       updated_at            = excluded.updated_at`,
+  ).run(
+    randomUUID(),
+    input.signalName,
+    input.reviewedCount,
+    input.positiveOutcomes,
+    input.negativeOutcomes,
+    input.falsePositiveCount,
+    input.falseRejectCount,
+    input.precision,
+    input.confidence,
+    now(),
+  );
+}
+
+export function listSignalPerformance(
+  db: Database = getDb(),
+  limit = 50,
+): SignalPerformanceRow[] {
+  return db
+    .prepare(
+      `SELECT * FROM signal_performance
+       WHERE reviewed_count > 0
+       ORDER BY confidence DESC, reviewed_count DESC LIMIT ?`,
+    )
+    .all(limit) as SignalPerformanceRow[];
+}
+
+// Compact joined row used by the calibration analyser — every reviewed
+// lead with the data the pattern detectors need in one query.
+export interface CalibrationLeadRow {
+  company_id: string;
+  company_name: string;
+  industry: string | null;
+  size_estimate: number | null;
+  review_type: string;
+  previous_campaign: string | null;
+  final_score: number;
+  opportunity_score: number | null;
+  trust_barrier_score: number | null;
+  has_phone: number; // 0/1
+  has_direct_email: number; // 0/1
+  signal_types_json: string; // JSON array of signal type strings
+}
+
+export function fetchReviewedLeadsForCalibration(
+  db: Database = getDb(),
+): CalibrationLeadRow[] {
+  // Phase 14.1 — calibration only consumes reviews on companies in the
+  // current data mode. Filters at the JOIN to avoid touching demo/test
+  // data in REAL mode.
+  
+  const origins = visibleOrigins();
+  const placeholders = origins.map(() => '?').join(',');
+  return db
+    .prepare(
+      `SELECT
+         c.id   AS company_id,
+         c.name AS company_name,
+         c.industry,
+         c.size_estimate,
+         lr.review_type,
+         lr.previous_campaign,
+         COALESCE(ls.final_score, 0)              AS final_score,
+         oi.opportunity_score                     AS opportunity_score,
+         oi.trust_barrier_score                   AS trust_barrier_score,
+         CASE WHEN EXISTS (
+           SELECT 1 FROM contact_routes cr
+           WHERE cr.company_id = c.id AND cr.route_type = 'PHONE'
+         ) THEN 1 ELSE 0 END                      AS has_phone,
+         CASE WHEN EXISTS (
+           SELECT 1 FROM contacts ct
+           WHERE ct.company_id = c.id AND ct.email_status = 'extracted'
+         ) THEN 1 ELSE 0 END                      AS has_direct_email,
+         (
+           SELECT '[' || GROUP_CONCAT('"' || type || '"', ',') || ']'
+           FROM signals
+           WHERE signals.company_id = c.id
+         )                                        AS signal_types_json
+       FROM lead_reviews lr
+       JOIN companies c ON c.id = lr.company_id
+       LEFT JOIN (
+         SELECT company_id, final_score, ROW_NUMBER() OVER
+           (PARTITION BY company_id ORDER BY created_at DESC) AS rn
+         FROM lead_scores
+       ) ls ON ls.company_id = c.id AND ls.rn = 1
+       LEFT JOIN opportunity_intelligence oi ON oi.company_id = c.id
+       WHERE c.data_origin IN (${placeholders})
+       ORDER BY lr.created_at DESC`,
+    )
+    .all(...origins) as CalibrationLeadRow[];
 }
 
 export function getEvidenceStats(db: Database = getDb()): {
@@ -1096,10 +1306,18 @@ export function getContactStats(db: Database = getDb()): {
   noContact: number;
   bySource: Record<string, number>;
 } {
+  // Phase 14.1 — only count contacts attached to mode-visible companies.
+  
+  const origins = visibleOrigins();
+  const placeholders = origins.map(() => '?').join(',');
   const companies = db
-    .prepare('SELECT id FROM companies WHERE status NOT IN (?, ?)')
-    .all('rejected', 'archived') as Array<{ id: string }>;
-  const contacts = db
+    .prepare(
+      `SELECT id FROM companies
+       WHERE status NOT IN ('rejected','archived') AND data_origin IN (${placeholders})`,
+    )
+    .all(...origins) as Array<{ id: string }>;
+  const visibleCompanyIds = new Set(companies.map((c) => c.id));
+  const contacts = (db
     .prepare('SELECT company_id, name, email, email_status, source FROM contacts')
     .all() as Array<{
     company_id: string;
@@ -1107,10 +1325,12 @@ export function getContactStats(db: Database = getDb()): {
     email: string | null;
     email_status: string | null;
     source: string | null;
-  }>;
-  const routes = db
+  }>).filter((c) => visibleCompanyIds.has(c.company_id));
+  const routes = (db
     .prepare('SELECT company_id, route_type FROM contact_routes')
-    .all() as Array<{ company_id: string; route_type: string }>;
+    .all() as Array<{ company_id: string; route_type: string }>).filter((r) =>
+    visibleCompanyIds.has(r.company_id),
+  );
 
   const contactByCompany = new Map<string, typeof contacts>();
   for (const c of contacts) {
@@ -1325,13 +1545,36 @@ export function upsertReviewItem(
   return created;
 }
 
-export function getAllCompanies(db: Database = getDb()): Company[] {
+// Phase 14.1 — by default this returns only REAL-mode-visible companies
+// (REAL, plus DEMO when DEMO_MODE/ALLOW_MOCK_DATA is on). Pass
+// {includeAll:true} to bypass the filter (used by validate:real-mode
+// and other audit tooling).
+export function getAllCompanies(
+  db: Database = getDb(),
+  options: { includeAll?: boolean } = {},
+): Company[] {
+  if (options.includeAll) {
+    return db
+      .prepare('SELECT * FROM companies ORDER BY created_at DESC')
+      .all() as Company[];
+  }
+  // Import is local to keep this module free of layer cycles.
+  
+  const origins = visibleOrigins();
+  const placeholders = origins.map(() => '?').join(',');
   return db
-    .prepare('SELECT * FROM companies ORDER BY created_at DESC')
-    .all() as Company[];
+    .prepare(
+      `SELECT * FROM companies WHERE data_origin IN (${placeholders}) ORDER BY created_at DESC`,
+    )
+    .all(...origins) as Company[];
 }
 
 export function getReviewQueue(db: Database = getDb()): Array<ReviewItem & Company> {
+  // Phase 14.1 — filter by current data mode so the dashboard never
+  // surfaces DEMO leads in REAL mode.
+  
+  const origins = visibleOrigins();
+  const placeholders = origins.map(() => '?').join(',');
   return db
     .prepare(
       `SELECT r.id              AS review_id,
@@ -1342,9 +1585,10 @@ export function getReviewQueue(db: Database = getDb()): Array<ReviewItem & Compa
               r.updated_at      AS review_updated_at,
               c.*
          FROM review_queue r
-         JOIN companies c ON c.id = r.company_id`,
+         JOIN companies c ON c.id = r.company_id
+        WHERE c.data_origin IN (${placeholders})`,
     )
-    .all() as Array<ReviewItem & Company>;
+    .all(...origins) as Array<ReviewItem & Company>;
 }
 
 export function updateReviewItemStatus(

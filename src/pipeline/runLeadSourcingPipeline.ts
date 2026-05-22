@@ -141,12 +141,16 @@ export async function runLeadSourcingPipeline(
       }
 
       // ---- 4. Persist companies + contacts + raw source signals first ---
+      // Phase 14.1 — tag every persisted company with the connector's
+      // declared origin so dashboard queries can filter cleanly.
+      const dataOrigin = source.dataOrigin ?? 'REAL';
+      const sourceType = dataOrigin === 'DEMO' ? 'MOCK_SOURCE' : 'REAL_SOURCE';
       const persistedLeads: Array<{
         company: ReturnType<typeof upsertCompanyFromLead>['company'];
         lead: RawLead;
       }> = [];
       for (const lead of unique) {
-        const { company } = upsertCompanyFromLead(lead, db);
+        const { company } = upsertCompanyFromLead(lead, db, { dataOrigin, sourceType });
         upsertContactFromLead(company.id, lead, db);
         persistSignals(company.id, lead, db);
         persistedLeads.push({ company, lead });
