@@ -329,6 +329,38 @@ export function getRegistryEnrichmentForLead(
   };
 }
 
+// Calibration timeline — review tags + outcome events in time order.
+// Feeds the Layer 3 RawDebugPanel. Each event carries kind + type +
+// createdAt so the drawer can render a uniform timeline regardless of
+// whether the row came from lead_reviews or lead_outcomes.
+export interface CalibrationEvent {
+  kind: 'review' | 'outcome';
+  type: string;
+  createdAt: string;
+}
+
+export function getCalibrationHistoryForLead(
+  companyId: string,
+): CalibrationEvent[] {
+  const db = getDb();
+  const reviews = db
+    .prepare(
+      'SELECT review_type AS type, created_at AS createdAt FROM lead_reviews WHERE company_id = ?',
+    )
+    .all(companyId) as Array<{ type: string; createdAt: string }>;
+  const outcomes = db
+    .prepare(
+      'SELECT outcome_type AS type, created_at AS createdAt FROM lead_outcomes WHERE company_id = ?',
+    )
+    .all(companyId) as Array<{ type: string; createdAt: string }>;
+  const events: CalibrationEvent[] = [
+    ...reviews.map((r) => ({ kind: 'review' as const, type: r.type, createdAt: r.createdAt })),
+    ...outcomes.map((o) => ({ kind: 'outcome' as const, type: o.type, createdAt: o.createdAt })),
+  ];
+  events.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return events;
+}
+
 // Per-lead outcome rows for the drawer's outcome tracker. Returns the
 // full history (DESC), so the timeline component can render every event.
 export function getOutcomesForLead(

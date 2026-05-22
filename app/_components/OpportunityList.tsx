@@ -20,7 +20,10 @@ import { useRouter } from 'next/navigation';
 import { OpportunityCard } from './OpportunityCard';
 import { mapHotkey, moveCursor } from './opportunityCardLogic';
 import type { ReviewQueueRow } from '../../src/types';
-import type { IntelligenceRowSummary } from '../_lib/dashboardData';
+import type {
+  IntelligenceRowSummary,
+  RegistryEnrichmentPanel,
+} from '../_lib/dashboardData';
 
 export interface OpportunityListItem {
   row: ReviewQueueRow;
@@ -28,6 +31,10 @@ export interface OpportunityListItem {
   hasContact: boolean;
   hasPhone: boolean;
   operatorTags: string[];
+  // Layer 1 decision summary needs registry status for the
+  // "Skip — not trading" recommended action path. Null when the
+  // lead hasn't been enriched yet.
+  registry: RegistryEnrichmentPanel | null;
 }
 
 interface Props {
@@ -179,6 +186,7 @@ export function OpportunityList({ items, selectedId, campaignFilter, topN }: Pro
           key={it.row.companyId}
           row={it.row}
           intel={it.intel}
+          registry={it.registry}
           isSelected={idx === cursor}
           detailHref={buildDetailHref(it.row.companyId, campaignFilter, topN)}
           operatorTags={new Set(it.operatorTags)}

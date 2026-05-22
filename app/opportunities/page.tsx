@@ -5,6 +5,7 @@
 
 import Link from 'next/link';
 import {
+  getCalibrationHistoryForLead,
   getContactRollupsByCompany,
   getContactsForLead,
   getDashboardData,
@@ -129,6 +130,11 @@ export default async function OpportunitiesPage({
     operatorTags: operatorTagsByCompany[row.companyId] ?? [],
     hasContact: contactRollups[row.companyId]?.hasContact ?? false,
     hasPhone: contactRollups[row.companyId]?.hasPhone ?? false,
+    // Pull each company's registry enrichment lazily — only the
+    // selected lead's full record reaches the drawer, but the
+    // Layer 1 recommendedAction needs the status to short-circuit
+    // dissolved / liquidation companies.
+    registry: getRegistryEnrichmentForLead(row.companyId),
   }));
 
   // Top-line counts shown in the header. Keep this lean — the cards
@@ -273,8 +279,11 @@ export default async function OpportunitiesPage({
           contacts={getContactsForLead(selectedLead.companyId)}
           evidence={getEvidenceForLead(selectedLead.companyId)}
           intelligence={getIntelligenceForLead(selectedLead.companyId)}
+          intel={intelligenceByCompany[selectedLead.companyId]}
           outcomes={getOutcomesForLead(selectedLead.companyId)}
           registryEnrichment={getRegistryEnrichmentForLead(selectedLead.companyId)}
+          calibrationHistory={getCalibrationHistoryForLead(selectedLead.companyId)}
+          hasPhone={contactRollups[selectedLead.companyId]?.hasPhone ?? false}
         />
       )}
     </>

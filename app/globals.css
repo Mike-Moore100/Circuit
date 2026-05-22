@@ -2835,6 +2835,283 @@ details.row-details > summary:hover { color: var(--text); }
   margin-right: 4px;
 }
 
+/* ============================================================
+   3-layer information hierarchy — DecisionSummary, ProofPanel,
+   RawDebugPanel, and the three summary cards. Shared between the
+   opportunity card (Layer 1 only) and the lead drawer (all three).
+   ============================================================ */
+
+.decision-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.decision-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.decision-head-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.decision-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.decision-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.decision-opp-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.decision-opp-cap { color: var(--text-subtle); font-size: 10px; margin-left: 2px; }
+.decision-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+.decision-sep { color: var(--text-subtle); }
+.decision-host { color: var(--text-muted); text-decoration: none; }
+.decision-host:hover { color: var(--accent); }
+
+.decision-summary-drawer .decision-title { font-size: 18px; }
+
+.recommended-action {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.recommended-action-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.recommended-action-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-subtle);
+}
+.recommended-action-head strong {
+  font-size: 15px;
+  color: var(--text);
+}
+.recommended-action-reasoning { font-size: var(--text-xs); color: var(--text-muted); margin: 2px 0 0; }
+.recommended-pursue      { background: #ecfdf5; border-color: #a7f3d0; }
+.recommended-pursue strong { color: #047857; }
+.recommended-investigate { background: var(--info-soft); border-color: var(--info-border); }
+.recommended-investigate strong { color: var(--info); }
+.recommended-skip        { background: var(--bg-subtle); border-color: var(--border); }
+.recommended-skip strong { color: var(--text-muted); }
+
+.decision-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.decision-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  font-size: var(--text-xs);
+}
+.decision-row-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--text-subtle);
+}
+.decision-row-value { color: var(--text); }
+.decision-row-pos   .decision-row-value { color: var(--text); }
+.decision-row-neg   .decision-row-value { color: var(--danger); }
+.decision-row-info  .decision-row-value { color: var(--text); }
+.decision-row-warn  .decision-row-value { color: var(--warning); }
+.decision-row-muted .decision-row-value { color: var(--text-muted); }
+.decision-row-ok    .decision-row-value { color: #047857; }
+
+/* Proof panel — Layer 2 wrapper */
+.proof-panel,
+.raw-debug-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.proof-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.proof-panel-hint {
+  font-size: 11px;
+  color: var(--text-subtle);
+}
+.proof-panel-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+/* Summary cards — used by RegistrySummaryCard, ContactSummaryCard,
+   EvidenceSummaryCard. One consistent shape so the drawer reads as a
+   row of cards rather than ad-hoc sections. */
+.summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.summary-card-ok    { border-color: #a7f3d0; background: #f0fdf4; }
+.summary-card-warn  { border-color: var(--warning-border); background: var(--warning-soft); }
+.summary-card-muted { background: var(--bg-subtle); }
+.summary-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.summary-card-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.summary-card-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.summary-card-tag-ok   { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.summary-card-tag-warn { background: var(--warning-soft); color: var(--warning); border-color: var(--warning-border); }
+.summary-card-body { margin: 0; font-size: var(--text-xs); color: var(--text-muted); }
+.summary-card-body strong { color: var(--text); }
+.summary-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px;
+}
+.summary-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.summary-card-muted .summary-cell { background: var(--bg-muted); }
+.summary-cell-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+.summary-cell-value { font-size: var(--text-sm); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.summary-card-notes {
+  margin: 0;
+  padding: 0 0 0 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.summary-card-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+.summary-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* RawDebugPanel — pre + timeline */
+.raw-debug-pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 360px;
+}
+.raw-debug-timeline {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.raw-debug-event {
+  display: grid;
+  grid-template-columns: 140px 70px 1fr;
+  gap: 8px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.raw-debug-when { color: var(--text-subtle); font-variant-numeric: tabular-nums; font-size: 10px; }
+.raw-debug-kind {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--text-subtle);
+}
+.raw-debug-type { color: var(--text); }
+.raw-debug-review  .raw-debug-kind { color: var(--info); }
+.raw-debug-outcome .raw-debug-kind { color: #047857; }
+
+.drawer-layer-1 { border-left: 3px solid var(--accent); padding-left: 14px; }
+.drawer-layer-2 { border-left: 3px solid var(--info); padding-left: 14px; }
+.drawer-layer-3 { border-left: 3px solid var(--text-subtle); padding-left: 14px; }
+
 /* Settings — Integrations cards. One card per external API. The
    Companies House card is the first; future integrations will share
    the same structural classes. */
