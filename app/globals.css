@@ -2286,16 +2286,17 @@ details.row-details > summary:hover { color: var(--text); }
   position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 14px 10px;
+  border-radius: 8px;
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   transition: border-color 120ms ease, box-shadow 120ms ease;
   scroll-margin-top: 16px;
 }
 .opp-card:hover {
   border-color: var(--accent);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   cursor: pointer;
 }
 .opp-card-selected {
@@ -3250,60 +3251,86 @@ details.row-details > summary:hover { color: var(--text); }
    opportunity card (Layer 1 only) and the lead drawer (all three).
    ============================================================ */
 
+/* DecisionSummary — Linear / Notion-style row card.
+   One strong headline (title + score) → pills row → label / value grid.
+   No avatar on cards (it created a 40px secondary left margin and
+   misaligned every following row). Everything aligns to the card's
+   left padding. Drawer mode keeps the avatar where the extra vertical
+   space makes it worth its weight. */
 .decision-summary {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-.decision-head {
-  display: flex;
-  align-items: flex-start;
   gap: 12px;
 }
-.decision-head-main {
-  flex: 1;
+
+.decision-headline {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.decision-headline-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   min-width: 0;
+  flex: 1;
+}
+.decision-headline-text {
+  min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 3px;
-}
-.decision-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 .decision-title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: var(--text);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
+  line-height: 1.2;
 }
-.decision-opp-score {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  color: var(--text-muted);
-  font-size: 13px;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 1px 8px;
-}
-.decision-opp-cap { color: var(--text-subtle); font-size: 10px; margin-left: 2px; }
+.decision-summary-drawer .decision-title { font-size: 19px; }
+
 .decision-sub {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--text-xs);
+  font-size: 12px;
   color: var(--text-muted);
   flex-wrap: wrap;
+  line-height: 1.4;
 }
 .decision-sep { color: var(--text-subtle); }
 .decision-host { color: var(--text-muted); text-decoration: none; }
 .decision-host:hover { color: var(--accent); }
 
-.decision-summary-drawer .decision-title { font-size: 18px; }
+.decision-headline-score {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+.decision-opp-score-big {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+.decision-summary-drawer .decision-opp-score-big { font-size: 28px; }
+.decision-opp-score-cap { font-size: 11px; color: var(--text-subtle); font-weight: 500; }
+
+/* Pills row — single line of small uniform metadata pills.
+   All same height, breathing room. No layered backgrounds. */
+.decision-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 
 .recommended-action {
   display: flex;
@@ -3337,33 +3364,40 @@ details.row-details > summary:hover { color: var(--text); }
 .recommended-skip        { background: var(--bg-subtle); border-color: var(--border); }
 .recommended-skip strong { color: var(--text-muted); }
 
+/* Decision rows. One CSS grid for the WHOLE list so every row's
+   label column shares the same fixed width and every value column
+   shares the same starting edge. Same font-size + line-height for
+   label and value so baseline align is visually exact. */
 .decision-rows {
-  list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  row-gap: 6px;
+  column-gap: 16px;
+  align-items: baseline;
+  font-size: 13px;
+  line-height: 1.45;
 }
 .decision-row {
-  display: grid;
-  grid-template-columns: 130px minmax(0, 1fr);
-  gap: 10px;
-  align-items: baseline;
-  font-size: var(--text-xs);
-  line-height: 1.35;
+  display: contents; /* let the parent grid lay out dt + dd directly */
 }
 .decision-row-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 600;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-subtle);
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.45;
 }
 .decision-row-value {
+  margin: 0;
   color: var(--text);
   overflow-wrap: anywhere;
+  line-height: 1.45;
 }
+.decision-row-aside { color: var(--text-muted); }
 .decision-row-pos   .decision-row-value { color: var(--text); }
 .decision-row-neg   .decision-row-value { color: var(--danger); }
 .decision-row-info  .decision-row-value { color: var(--text); }

@@ -56,73 +56,73 @@ export function DecisionSummary({
   const opp = intel?.opportunityScore ?? null;
   const attention = intel?.humanAttentionPriority ?? 'IGNORE';
 
+  // Linear / Stripe / Notion-style card: ONE strong element (the
+  // company name + opp score on a single row), supporting context
+  // beneath at a consistent left edge, then aligned label / value
+  // rows. No avatar on cards — it pushed every following element
+  // 40px right and forced two competing left margins.
   return (
     <div className={`decision-summary decision-summary-${mode}`}>
-      <header className="decision-head">
-        <Avatar name={lead.company} size={mode === 'drawer' ? 36 : 28} />
-        <div className="decision-head-main">
-          <div className="decision-title-row">
+      <div className="decision-headline">
+        <div className="decision-headline-left">
+          {mode === 'drawer' && <Avatar name={lead.company} size={36} />}
+          <div className="decision-headline-text">
             <h3 className="decision-title">{lead.company}</h3>
-            <span className={`campaign-tag campaign-${campaign}`}>
-              {CAMPAIGN_LABEL[campaign]}
-            </span>
-            {opp !== null && (
-              <span className="decision-opp-score" title="Opportunity score">
-                {opp}<span className="decision-opp-cap">/100</span>
-              </span>
-            )}
-            <span className={`attention-pill attention-${attention}`}>
-              {attention}
-            </span>
-            <RegistryBadge registry={intel?.registry} />
-          </div>
-          <div className="decision-sub">
-            {lead.industry && <span>{lead.industry}</span>}
-            {(lead.location || lead.discoveryLocation) && (
-              <>
-                <span className="decision-sep">·</span>
-                <span>{lead.location ?? lead.discoveryLocation}</span>
-              </>
-            )}
-            {intel?.likelyBuyer && (
-              <>
-                <span className="decision-sep">·</span>
-                <span>{intel.likelyBuyer}</span>
-              </>
-            )}
-            {host && (
-              <>
-                <span className="decision-sep">·</span>
-                <a
-                  href={lead.website ?? `https://${host}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="decision-host"
-                >
-                  {host}
-                </a>
-              </>
-            )}
-          </div>
-
-          {mode === 'drawer' && (
-            <div className={`recommended-action recommended-${recommendedAction.tone}`}>
-              <div className="recommended-action-head">
-                <span className="recommended-action-label">Recommended</span>
-                <strong>{recommendedAction.label}</strong>
-              </div>
-              <p className="recommended-action-reasoning">
-                {recommendedAction.reasoning}
-              </p>
+            <div className="decision-sub">
+              {lead.industry && <span>{lead.industry}</span>}
+              {(lead.location || lead.discoveryLocation) && (
+                <>
+                  <span className="decision-sep">·</span>
+                  <span>{lead.location ?? lead.discoveryLocation}</span>
+                </>
+              )}
+              {host && (
+                <>
+                  <span className="decision-sep">·</span>
+                  <a
+                    href={lead.website ?? `https://${host}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="decision-host"
+                  >
+                    {host}
+                  </a>
+                </>
+              )}
             </div>
-          )}
+          </div>
+        </div>
+        {opp !== null && (
+          <div className="decision-headline-score">
+            <span className="decision-opp-score-big">{opp}</span>
+            <span className="decision-opp-score-cap">/100</span>
+          </div>
+        )}
+      </div>
 
-          {/* Decision rows live INSIDE the head-main block so they
-             auto-indent to align with the title (i.e. they sit past
-             the avatar). Putting them at the .decision-summary top
-             level put the labels at the card's left edge and the
-             title at avatar+12px — visually broken. */}
-          <ul className="decision-rows">
+      <div className="decision-pills">
+        <span className={`campaign-tag campaign-${campaign}`}>
+          {CAMPAIGN_LABEL[campaign]}
+        </span>
+        <span className={`attention-pill attention-${attention}`}>
+          {attention}
+        </span>
+        <RegistryBadge registry={intel?.registry} />
+      </div>
+
+      {mode === 'drawer' && (
+        <div className={`recommended-action recommended-${recommendedAction.tone}`}>
+          <div className="recommended-action-head">
+            <span className="recommended-action-label">Recommended</span>
+            <strong>{recommendedAction.label}</strong>
+          </div>
+          <p className="recommended-action-reasoning">
+            {recommendedAction.reasoning}
+          </p>
+        </div>
+      )}
+
+      <dl className="decision-rows">
         {strongestReason && (
           <DecisionRow label="Why it matters" tone="pos">
             {strongestReason}
@@ -133,8 +133,11 @@ export function DecisionSummary({
             {strongestEvidence}
           </DecisionRow>
         )}
-        <DecisionRow label="Best contact route" tone={bestContact.tone}>
+        <DecisionRow label="Best contact" tone={bestContact.tone}>
           {bestContact.line}
+          {intel?.likelyBuyer && (
+            <span className="decision-row-aside"> · {intel.likelyBuyer}</span>
+          )}
         </DecisionRow>
         {topRisk && (
           <DecisionRow label="Top risk" tone="neg">
@@ -155,9 +158,7 @@ export function DecisionSummary({
             {registrySummaryLine(registry)}
           </DecisionRow>
         )}
-          </ul>
-        </div>
-      </header>
+      </dl>
     </div>
   );
 }
@@ -172,10 +173,10 @@ function DecisionRow({
   children: React.ReactNode;
 }) {
   return (
-    <li className={`decision-row decision-row-${tone}`}>
-      <span className="decision-row-label">{label}</span>
-      <span className="decision-row-value">{children}</span>
-    </li>
+    <div className={`decision-row decision-row-${tone}`}>
+      <dt className="decision-row-label">{label}</dt>
+      <dd className="decision-row-value">{children}</dd>
+    </div>
   );
 }
 
