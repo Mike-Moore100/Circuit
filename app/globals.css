@@ -2825,6 +2825,40 @@ details.row-details > summary:hover { color: var(--text); }
 }
 .system-banner-link:hover { text-decoration: underline; }
 
+.filter-strip-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--text-subtle);
+  align-self: center;
+  margin-right: 4px;
+}
+
+/* Compact registry status pill — used on opportunity cards + tables. */
+.registry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.registry-badge-md { font-size: 11px; padding: 2px 8px; border-radius: 6px; }
+.registry-badge-idle  { background: var(--bg-subtle);   color: var(--text-subtle); }
+.registry-badge-ok    { background: #ecfdf5;            color: #047857;            border-color: #a7f3d0; }
+.registry-badge-warn  { background: var(--warning-soft);color: var(--warning);     border-color: var(--warning-border); }
+.registry-badge-err   { background: var(--danger-soft); color: var(--danger);      border-color: var(--danger-border); }
+.registry-badge-muted { background: var(--bg-muted);    color: var(--text-subtle); }
+
 /* Companies House registry enrichment panel — UK-only, informational. */
 .registry-section { transition: background 120ms ease, border-color 120ms ease; }
 .registry-section-idle    { border-left: 3px solid var(--text-subtle); padding-left: 12px; }

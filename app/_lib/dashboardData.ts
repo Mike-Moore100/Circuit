@@ -254,6 +254,21 @@ export interface IntelligenceRowSummary {
   // on the card. Distinct from technical issues; focused on commercial
   // positioning (unclear services, weak onboarding, generic positioning).
   commercialWeaknesses: CommercialWeakness[];
+  // Phase 1 — Companies House enrichment rollup. Null when the lead has
+  // no registry_enrichments row yet (treated as "not_checked" by the UI).
+  registry: RegistryRowSummary | null;
+}
+
+// Compact registry summary surfaced on cards. We deliberately don't
+// expose the full record here — that lives in the drawer. The badge
+// needs the outcome (status pill colour), the company status (e.g.
+// "active"/"dissolved"), and the legitimacy confidence so the operator
+// can spot dissolved / liquidation rows at a glance.
+export interface RegistryRowSummary {
+  outcome: string;
+  status: string | null;
+  ageYears: number | null;
+  confidence: string | null;
 }
 
 // Rollup of "is there a usable contact path per company". Cheap aggregate
@@ -418,6 +433,49 @@ export function getIntelligenceSummariesByCompany(): Record<string, Intelligence
     companyMeta.map((c) => [c.id, { name: c.name, industry: c.industry }]),
   );
 
+  // Registry enrichment rollup — single query so the cards render
+  // without N round-trips. Stores compact fields only (full record
+  // stays in the drawer).
+  const registryRows = db
+    .prepare(
+      `SELECT company_id, outcome, record_json, signals_json
+         FROM registry_enrichments`,
+    )
+    .all() as Array<{
+    company_id: string;
+    outcome: string;
+    record_json: string | null;
+    signals_json: string | null;
+  }>;
+  const registryByCompany = new Map<string, RegistryRowSummary>();
+  for (const r of registryRows) {
+    let status: string | null = null;
+    let ageYears: number | null = null;
+    let confidence: string | null = null;
+    try {
+      if (r.record_json) {
+        const rec = JSON.parse(r.record_json) as { status?: string };
+        status = rec.status ?? null;
+      }
+    } catch { /* ignore */ }
+    try {
+      if (r.signals_json) {
+        const sig = JSON.parse(r.signals_json) as {
+          companyAgeYears?: number | null;
+          legitimacyConfidence?: string;
+        };
+        ageYears = sig.companyAgeYears ?? null;
+        confidence = sig.legitimacyConfidence ?? null;
+      }
+    } catch { /* ignore */ }
+    registryByCompany.set(r.company_id, {
+      outcome: r.outcome,
+      status,
+      ageYears,
+      confidence,
+    });
+  }
+
   // We need verified signals + contactability for the why-now computation.
   // Single-query approach keeps this O(1) DB calls instead of O(N).
   const signalRows = db
@@ -493,6 +551,7 @@ export function getIntelligenceSummariesByCompany(): Record<string, Intelligence
       strongestEvidence: intelligence?.strongestSignals[0] ?? null,
       strongestPainSignal: intelligence?.operationalPain.signals[0] ?? null,
       likelyBuyer: buyerByCompany[r.company_id] ?? null,
+      registry: registryByCompany.get(r.company_id) ?? null,
       commercialWeaknesses: topCommercialWeaknesses({
         verifiedSignals: verified,
         intelligence,

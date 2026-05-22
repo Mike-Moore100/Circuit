@@ -76,6 +76,7 @@ function makeIntel(
     strongestPainSignal: 'Manual onboarding language',
     likelyBuyer: 'Founder · Jane Smith',
     commercialWeaknesses: [],
+    registry: null,
     ...overrides,
   };
 }

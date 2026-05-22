@@ -215,6 +215,14 @@ export function LeadDrawer({
           </details>
         </section>
 
+        {/* Registry section surfaces near the top so it's never buried.
+           Strictly informational — the operator runs the lookup from
+           here instead of opening a terminal. */}
+        <RegistryEnrichment
+          companyId={lead.companyId}
+          enrichment={registryEnrichment}
+        />
+
         {intelligence && (
           <section className="drawer-section">
             <h3 className="drawer-label">Opportunity intelligence</h3>
@@ -558,11 +566,6 @@ export function LeadDrawer({
             )}
           </section>
         )}
-
-        <RegistryEnrichment
-          companyId={lead.companyId}
-          enrichment={registryEnrichment}
-        />
 
         <section className="drawer-section">
           <h3 className="drawer-label">Outcome tracking</h3>

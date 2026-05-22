@@ -27,6 +27,7 @@ import {
   type OperatorReviewType,
 } from '../../src/validation/types';
 import { contactabilityLabel } from './opportunityCardLogic';
+import { RegistryBadge } from './RegistryBadge';
 
 interface Props {
   row: ReviewQueueRow;
@@ -166,6 +167,7 @@ export function OpportunityCard({
                   <span className="opp-card-opp-cap">/100</span>
                 </span>
               )}
+              <RegistryBadge registry={intel?.registry} />
             </div>
             <div className="opp-card-sub">
               <span className={`campaign-dot campaign-${campaign}`} />
