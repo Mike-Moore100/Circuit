@@ -36,6 +36,8 @@ export const APPROVAL_TAGS = new Set<string>([
   // correct_campaign means the operator confirmed the system's routing;
   // we treat it as a soft approval.
   'correct_campaign',
+  // Phase 1 Validation refactor — explicit "matches our ICP".
+  'good_fit',
 ]);
 
 export const REJECTION_TAGS = new Set<string>([

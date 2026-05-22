@@ -1,14 +1,22 @@
-// Phase 1 Live Validation dashboard. Answers the question the rest of
-// the system can't answer on its own: "is the opportunity ranking
-// actually surfacing commercially valuable leads?"
+// Phase 1 Validation page — ranking quality review workflow.
 //
-// Layout is intentionally dense — operators looking at this page already
-// have the per-lead detail on /opportunities. This is the aerial view.
+// Four sections in strict order:
+//
+//   1. Validation Summary     — compact rates + best/worst industries
+//   2. Validation Queue       — primary working area (review one lead at a time)
+//   3. Pattern Insights       — text-driven patterns from operator history
+//   4. Calibration Recommendations — one-line scoring tweaks with evidence
+//
+// Old surface (top-ranked tables, conversion opportunities, score
+// vs agreement breakouts, outcome distribution etc.) is NOT removed.
+// It moves to the Patterns section where it belongs (insight, not
+// dashboard) or onto the per-lead drawer on /opportunities.
 
-import Link from 'next/link';
 import { PageHeader } from '../_components/PageHeader';
-import { getValidationData, type ValidationLeadView } from '../_lib/validationData';
-import { OUTCOME_LABEL, OUTCOME_TONE } from '../../src/validation/outcomeTypes';
+import { PatternInsightCard } from '../_components/PatternInsightCard';
+import { RecommendationCard } from '../_components/RecommendationCard';
+import { ValidationQueueCard } from '../_components/ValidationQueueCard';
+import { getValidationData } from '../_lib/validationData';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,294 +25,207 @@ function pct(rate: number | null): string {
   return `${Math.round(rate * 100)}%`;
 }
 
-function LeadRow({ lead }: { lead: ValidationLeadView }) {
-  return (
-    <tr>
-      <td className="num">{lead.opportunityScore}</td>
-      <td>
-        <Link
-          href={`/opportunities?lead=${lead.companyId}`}
-          scroll={false}
-          className="company-link"
-        >
-          {lead.company}
-        </Link>
-        {lead.industry && <span className="muted"> · {lead.industry}</span>}
-      </td>
-      <td>
-        <span className={`attention-pill attention-${lead.attentionPriority}`}>
-          {lead.attentionPriority}
-        </span>
-      </td>
-      <td className="num">{lead.trustBarrier}</td>
-      <td className="num">{lead.operationalPain}</td>
-      <td>
-        {lead.latestOutcome ? (
-          <span
-            className={`outcome-pill outcome-${
-              (OUTCOME_TONE as Record<string, string>)[lead.latestOutcome] ?? 'neutral'
-            }`}
-          >
-            {(OUTCOME_LABEL as Record<string, string>)[lead.latestOutcome] ??
-              lead.latestOutcome}
-          </span>
-        ) : (
-          <span className="muted">—</span>
-        )}
-      </td>
-      <td>
-        {lead.approved && <span className="vdot vdot-approved" title="Operator approved">●</span>}
-        {lead.rejected && <span className="vdot vdot-rejected" title="Operator rejected">●</span>}
-      </td>
-    </tr>
-  );
-}
-
-function LeadTable({
-  title,
-  rows,
-  emptyHint,
-}: {
-  title: string;
-  rows: ValidationLeadView[];
-  emptyHint: string;
-}) {
-  return (
-    <section className="section">
-      <h2 className="section-title">{title}</h2>
-      <div className="panel">
-        {rows.length === 0 ? (
-          <div className="empty">{emptyHint}</div>
-        ) : (
-          <table className="runs-table validation-table">
-            <thead>
-              <tr>
-                <th>Score</th>
-                <th>Company</th>
-                <th>Priority</th>
-                <th>Trust</th>
-                <th>Pain</th>
-                <th>Latest outcome</th>
-                <th>Verdict</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <LeadRow key={r.companyId} lead={r} />
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </section>
-  );
-}
-
 export default function ValidationPage() {
   const data = getValidationData();
-  const m = data.metrics;
+  const m = data.summary.metrics;
+  const queueByReason = {
+    unreviewed: data.queue.filter((q) => q.queueReason === 'unreviewed_high').length,
+    falsePos: data.queue.filter((q) => q.queueReason === 'false_positive_candidate').length,
+    falseRej: data.queue.filter((q) => q.queueReason === 'false_reject_candidate').length,
+    conflicts: data.queue.filter((q) => q.queueReason === 'conflicting_tags').length,
+  };
+  const subtitle = data.queue.length === 0
+    ? `Nothing in the queue right now. Score history: ${m.totalReviewed} reviewed.`
+    : `${data.queue.length} in queue · ${queueByReason.unreviewed} unreviewed · ${queueByReason.falsePos + queueByReason.falseRej} mismatches`;
 
   return (
     <>
-      <PageHeader
-        title="Validation"
-        subtitle={`${m.totalReviewed} reviewed · ${pct(m.operatorAgreementRate)} agreement · ${
-          m.rankingConfidence === null ? 'confidence pending' : `confidence ${m.rankingConfidence}/100`
-        }`}
-      />
+      <PageHeader title="Validation" subtitle={subtitle} />
 
-      {/* ---- Calibration metric strip --------------------------------- */}
+      {/* ---- 1. SUMMARY -------------------------------------------- */}
       <section className="section">
-        <div className="validation-metric-strip">
-          <div className="vmetric">
-            <div className="vmetric-label">Agreement</div>
-            <div className="vmetric-value">{pct(m.operatorAgreementRate)}</div>
-            <div className="vmetric-sub">operator approved / reviewed</div>
-          </div>
-          <div className="vmetric">
-            <div className="vmetric-label">Disagreement</div>
-            <div className="vmetric-value">{pct(m.operatorDisagreementRate)}</div>
-            <div className="vmetric-sub">operator rejected / reviewed</div>
-          </div>
-          <div className="vmetric vmetric-danger">
-            <div className="vmetric-label">False positives</div>
-            <div className="vmetric-value">{pct(m.falsePositiveRate)}</div>
-            <div className="vmetric-sub">
-              {m.highScoreRejected}/{m.totalHighScore} high-score rejected
-            </div>
-          </div>
-          <div className="vmetric vmetric-warn">
-            <div className="vmetric-label">False negatives</div>
-            <div className="vmetric-value">{pct(m.falseNegativeRate)}</div>
-            <div className="vmetric-sub">
-              {m.lowScoreApproved}/{m.totalLowScore} low-score approved
-            </div>
-          </div>
-          <div className="vmetric vmetric-confidence">
-            <div className="vmetric-label">Ranking confidence</div>
-            <div className="vmetric-value">
-              {m.rankingConfidence === null ? '—' : `${m.rankingConfidence}/100`}
-            </div>
-            <div className="vmetric-sub">
-              {m.totalReviewed < 5
-                ? `${m.totalReviewed}/5 reviewed (need more data)`
-                : 'composite of agreement + false rates'}
-            </div>
-          </div>
+        <h2 className="section-title section-title-quiet">Summary</h2>
+        <div className="vs-summary">
+          <SummaryStat label="Agreement" value={pct(m.operatorAgreementRate)} tone="ok" />
+          <SummaryStat
+            label="False positives"
+            value={pct(m.falsePositiveRate)}
+            sub={`${m.highScoreRejected}/${m.totalHighScore} high-score rejected`}
+            tone="err"
+          />
+          <SummaryStat
+            label="False rejects"
+            value={pct(m.falseNegativeRate)}
+            sub={`${m.lowScoreApproved}/${m.totalLowScore} low-score approved`}
+            tone="warn"
+          />
+          <SummaryStat
+            label="Ranking confidence"
+            value={m.rankingConfidence === null ? '—' : `${m.rankingConfidence}/100`}
+            sub={m.totalReviewed < 5 ? `${m.totalReviewed}/5 reviewed` : 'composite'}
+            tone="info"
+          />
+          <SummaryStat
+            label="Strongest industry"
+            value={data.summary.strongestIndustry ?? '—'}
+            tone="ok"
+          />
+          <SummaryStat
+            label="Weakest industry"
+            value={data.summary.weakestIndustry ?? '—'}
+            tone="warn"
+          />
         </div>
+        {data.summary.scoringDriftWarning && (
+          <p className="vs-drift">
+            <strong>Drift:</strong> {data.summary.scoringDriftWarning}
+          </p>
+        )}
       </section>
 
-      {/* ---- Top-ranked + highest-approved -------------------------- */}
-      <LeadTable
-        title="Top-ranked opportunities"
-        rows={data.topRanked}
-        emptyHint="No scored opportunities yet — run discovery + qualification first."
-      />
-      <LeadTable
-        title="Highest operator-approved leads"
-        rows={data.highestApproved}
-        emptyHint="No approval tags yet. Open /opportunities and mark a few leads as 'Would contact' / 'High commercial potential'."
-      />
-
-      {/* ---- Conversion opportunities (commercial weakness) --------- */}
-      <LeadTable
-        title="Strongest conversion opportunities (weak onboarding + high opp)"
-        rows={data.conversionOpportunities}
-        emptyHint="No high-opp leads with weak onboarding flow detected."
-      />
-
-      {/* ---- Trust barrier patterns -------------------------------- */}
-      <LeadTable
-        title="Highest trust barrier patterns"
-        rows={data.highestTrustBarrier}
-        emptyHint="No trust barrier signals detected."
-      />
-
-      {/* ---- Commercial pain pattern counts ------------------------ */}
+      {/* ---- 2. QUEUE — PRIMARY ----------------------------------- */}
       <section className="section">
-        <h2 className="section-title">Strongest commercial pain patterns</h2>
-        <div className="panel">
-          {data.commercialPainPatterns.length === 0 ? (
-            <div className="empty">No commercial pain patterns detected yet.</div>
-          ) : (
-            <table className="runs-table">
-              <thead>
-                <tr>
-                  <th>Pattern</th>
-                  <th>Companies</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.commercialPainPatterns.map((p) => (
-                  <tr key={p.kind}>
-                    <td>{p.label}</td>
-                    <td className="num">{p.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <header className="section-head">
+          <h2 className="section-title">Validation queue</h2>
+          <span className="section-hint-inline">
+            Review each lead with one click. Tags persist as calibration history.
+          </span>
+        </header>
+        {data.queue.length === 0 ? (
+          <div className="panel">
+            <div className="empty">
+              <strong>Queue is clear.</strong>
+              Every high-score lead has been reviewed. Re-run discovery or
+              wait for the next promotion batch.
+            </div>
+          </div>
+        ) : (
+          <div className="vq-list">
+            {data.queue.map((item) => (
+              <ValidationQueueCard key={item.companyId} item={item} />
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* ---- Score vs operator agreement --------------------------- */}
+      {/* ---- 3. PATTERN INSIGHTS ---------------------------------- */}
       <section className="section">
-        <h2 className="section-title">Opportunity score vs operator agreement</h2>
-        <div className="three-col">
+        <header className="section-head">
+          <h2 className="section-title">Pattern insights</h2>
+          <span className="section-hint-inline">
+            Derived from operator review history. Each insight carries its evidence count.
+          </span>
+        </header>
+        {totalInsights(data.patterns) === 0 ? (
           <div className="panel">
-            <h3 className="panel-sub">High score · approved <span className="vdot vdot-approved">●</span></h3>
-            {data.scoreVsAgreement.highScoreApproved.length === 0 ? (
-              <div className="empty">No high-score approved leads yet.</div>
-            ) : (
-              <ul className="lead-mini-list">
-                {data.scoreVsAgreement.highScoreApproved.map((l) => (
-                  <li key={l.companyId}>
-                    <Link href={`/opportunities?lead=${l.companyId}`} scroll={false}>
-                      {l.company}
-                    </Link>
-                    <span className="muted"> · {l.opportunityScore}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="empty">
+              <strong>Not enough reviewed leads to surface patterns yet.</strong>
+              Review at least {3} leads per industry to unlock insights.
+            </div>
           </div>
-          <div className="panel">
-            <h3 className="panel-sub">High score · rejected <span className="vdot vdot-rejected">●</span></h3>
-            <p className="muted">
-              False positives — the ranking surfaced these but the operator rejected.
-            </p>
-            {data.scoreVsAgreement.highScoreRejected.length === 0 ? (
-              <div className="empty">No false positives yet.</div>
-            ) : (
-              <ul className="lead-mini-list">
-                {data.scoreVsAgreement.highScoreRejected.map((l) => (
-                  <li key={l.companyId}>
-                    <Link href={`/opportunities?lead=${l.companyId}`} scroll={false}>
-                      {l.company}
-                    </Link>
-                    <span className="muted"> · {l.opportunityScore}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+        ) : (
+          <div className="pattern-grid">
+            {data.patterns.strongest.map((p, i) => (
+              <PatternInsightCard key={`s${i}`} insight={p} />
+            ))}
+            {data.patterns.weakest.map((p, i) => (
+              <PatternInsightCard key={`w${i}`} insight={p} />
+            ))}
+            {data.patterns.falsePositives.map((p, i) => (
+              <PatternInsightCard key={`fp${i}`} insight={p} />
+            ))}
+            {data.patterns.falseRejects.map((p, i) => (
+              <PatternInsightCard key={`fr${i}`} insight={p} />
+            ))}
+            {data.patterns.signals.map((p, i) => (
+              <PatternInsightCard key={`sig${i}`} insight={p} />
+            ))}
           </div>
-          <div className="panel">
-            <h3 className="panel-sub">Low score · approved <span className="vdot vdot-approved">●</span></h3>
-            <p className="muted">
-              False negatives — the operator wants these but the ranking didn't.
-            </p>
-            {data.scoreVsAgreement.lowScoreApproved.length === 0 ? (
-              <div className="empty">No false negatives yet.</div>
-            ) : (
-              <ul className="lead-mini-list">
-                {data.scoreVsAgreement.lowScoreApproved.map((l) => (
-                  <li key={l.companyId}>
-                    <Link href={`/opportunities?lead=${l.companyId}`} scroll={false}>
-                      {l.company}
-                    </Link>
-                    <span className="muted"> · {l.opportunityScore}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        )}
       </section>
 
-      {/* ---- Outcome distribution --------------------------------- */}
-      {Object.keys(data.outcomeDistribution).length > 0 && (
+      {/* ---- 4. CALIBRATION RECOMMENDATIONS ----------------------- */}
+      <section className="section">
+        <header className="section-head">
+          <h2 className="section-title">Calibration recommendations</h2>
+          <span className="section-hint-inline">
+            Concrete scoring tweaks evidenced by the patterns above.
+          </span>
+        </header>
+        {data.recommendations.length === 0 ? (
+          <div className="panel">
+            <div className="empty">
+              <strong>No calibration tweaks recommended yet.</strong>
+              Recommendations appear once enough patterns reach the
+              evidence threshold (3+ reviews per signal).
+            </div>
+          </div>
+        ) : (
+          <div className="rec-grid">
+            {data.recommendations.map((rec, i) => (
+              <RecommendationCard key={i} recommendation={rec} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ---- Outcome distribution moved into Layer 3 collapsible
+              — kept accessible per the brief's "don't delete data"
+              rule but pushed below the operator's primary workflow. */}
+      {Object.keys(data.summary.outcomeDistribution).length > 0 && (
         <section className="section">
-          <h2 className="section-title">Outcome distribution</h2>
-          <div className="panel">
+          <details className="drawer-collapsible">
+            <summary className="drawer-collapsible-summary">
+              Outcome distribution ({Object.values(data.summary.outcomeDistribution).reduce((s, n) => s + n, 0)} recorded)
+            </summary>
             <table className="runs-table">
               <thead>
-                <tr>
-                  <th>Outcome</th>
-                  <th>Count</th>
-                </tr>
+                <tr><th>Outcome</th><th>Count</th></tr>
               </thead>
               <tbody>
-                {Object.entries(data.outcomeDistribution)
+                {Object.entries(data.summary.outcomeDistribution)
                   .sort((a, b) => b[1] - a[1])
                   .map(([type, count]) => (
                     <tr key={type}>
-                      <td>
-                        <span
-                          className={`outcome-pill outcome-${
-                            (OUTCOME_TONE as Record<string, string>)[type] ?? 'neutral'
-                          }`}
-                        >
-                          {(OUTCOME_LABEL as Record<string, string>)[type] ?? type}
-                        </span>
-                      </td>
+                      <td>{type.replace(/_/g, ' ').toLowerCase()}</td>
                       <td className="num">{count}</td>
                     </tr>
                   ))}
               </tbody>
             </table>
-          </div>
+          </details>
         </section>
       )}
     </>
+  );
+}
+
+function totalInsights(patterns: ReturnType<typeof getValidationData>['patterns']): number {
+  return (
+    patterns.strongest.length +
+    patterns.weakest.length +
+    patterns.falsePositives.length +
+    patterns.falseRejects.length +
+    patterns.signals.length
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone: 'ok' | 'warn' | 'err' | 'info';
+}) {
+  return (
+    <div className={`vs-stat vs-stat-${tone}`}>
+      <span className="vs-stat-label">{label}</span>
+      <span className="vs-stat-value">{value}</span>
+      {sub && <span className="vs-stat-sub">{sub}</span>}
+    </div>
   );
 }

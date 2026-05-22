@@ -40,6 +40,10 @@ export const OPERATOR_REVIEW_TYPES = [
   'low_commercial_potential',
   'strong_pain',
   'weak_pain',
+  // Phase 1 Validation refactor — explicit "this matches our ICP"
+  // signal. Distinct from correct_campaign (campaign routing was
+  // right) and high_commercial_potential (financial size).
+  'good_fit',
 ] as const;
 
 export const REVIEW_TYPES = [
@@ -71,6 +75,7 @@ export const REVIEW_LABEL: Record<ReviewType, string> = {
   low_commercial_potential: 'Low commercial potential',
   strong_pain: 'Strong pain',
   weak_pain: 'Weak pain',
+  good_fit: 'Good fit',
 };
 
 // One-line tooltips shown on hover — explain what each rating means so
@@ -95,6 +100,7 @@ export const REVIEW_HINT: Record<ReviewType, string> = {
   low_commercial_potential: 'Real lead, but commercially small.',
   strong_pain: 'Visible commercial pain — they need something now.',
   weak_pain: 'No real commercial pain visible.',
+  good_fit: 'Matches our ICP — campaign routing and signal mix both look right.',
 };
 
 export function isCalibrationReview(type: string): type is CalibrationReviewType {

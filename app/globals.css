@@ -2839,6 +2839,301 @@ details.row-details > summary:hover { color: var(--text); }
 .lead-mini-list a { color: var(--text); text-decoration: none; }
 .lead-mini-list a:hover { color: var(--accent); }
 
+/* ============================================================
+   Phase 1 Validation refactor — review workflow surface.
+   ============================================================ */
+
+.section-title-quiet {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.section-hint-inline {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  max-width: 480px;
+  text-align: right;
+}
+
+/* 1. Summary — compact, one row of stats, no chart wall. */
+.vs-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+.vs-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.vs-stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+.vs-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.vs-stat-sub { font-size: var(--text-xs); color: var(--text-muted); }
+.vs-stat-ok   .vs-stat-value { color: #047857; }
+.vs-stat-err  .vs-stat-value { color: var(--danger); }
+.vs-stat-warn .vs-stat-value { color: var(--warning); }
+.vs-stat-info .vs-stat-value { color: var(--info); }
+.vs-drift {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  color: var(--warning);
+}
+.vs-drift strong { color: var(--warning); }
+
+/* 2. Queue — primary working area. Each card is one decision. */
+.vq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.vq-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.vq-card-idle { border-left-color: var(--text-subtle); }
+.vq-card-warn { border-left-color: var(--warning); }
+.vq-card-err  { border-left-color: var(--danger); }
+.vq-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.vq-card-title-block { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.vq-card-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+.vq-card-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+.vq-card-campaign {
+  background: var(--bg-subtle);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 500;
+}
+.vq-sep { color: var(--text-subtle); }
+.vq-card-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.vq-card-reason {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.vq-card-reason-warn { background: var(--warning-soft); color: var(--warning); border-color: var(--warning-border); }
+.vq-card-reason-err  { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
+.vq-card-score {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.vq-card-score-cap { font-size: 11px; color: var(--text-subtle); margin-left: 2px; font-weight: 500; }
+
+.vq-card-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+}
+.vq-row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+.vq-row dt {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--text-subtle);
+  margin: 0;
+}
+.vq-row dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.vq-row-neg dd { color: var(--danger); }
+
+.vq-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.vq-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vq-action {
+  font-size: 12px;
+  padding: 5px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+}
+.vq-action:hover { background: var(--bg-subtle); }
+.vq-action:disabled { opacity: 0.5; cursor: not-allowed; }
+.vq-action-ok   { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+.vq-action-warn { border-color: var(--warning-border); background: var(--warning-soft); color: var(--warning); }
+.vq-action-err  { border-color: var(--danger-border); background: var(--danger-soft); color: var(--danger); }
+.vq-action-open {
+  margin-left: auto;
+  text-decoration: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+.vq-card-error { font-size: var(--text-xs); color: var(--danger); margin: 4px 0 0; }
+.vq-card-applied { font-size: 10px; color: var(--text-subtle); margin: 4px 0 0; font-style: italic; }
+
+/* 3. Pattern insights — text-driven cards. */
+.pattern-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+.pattern-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.pattern-card-ok   { border-left-color: #047857; }
+.pattern-card-warn { border-left-color: var(--warning); }
+.pattern-card-err  { border-left-color: var(--danger); }
+.pattern-card-info { border-left-color: var(--info); }
+.pattern-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.pattern-card-kind {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-subtle);
+}
+.pattern-card-kind-ok   { color: #047857; }
+.pattern-card-kind-warn { color: var(--warning); }
+.pattern-card-kind-err  { color: var(--danger); }
+.pattern-card-kind-info { color: var(--info); }
+.pattern-card-evidence {
+  font-size: 11px;
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.pattern-card-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--text);
+}
+
+/* 4. Recommendations — one line + rationale. */
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 10px;
+}
+.rec-card {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rec-card-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.rec-card-arrow { color: var(--accent); font-weight: 700; }
+.rec-card-rationale {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.rec-card-evidence {
+  font-size: 10px;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
 /* SectionSubNav — horizontal tab strip at the top of every group
    page. Sidebar is the operator's "where", SubNav is the operator's
    "what within where". Always present when the route belongs to a
