@@ -336,6 +336,144 @@ code {
    ============================================================ */
 /* Overview strip CSS deleted — replaced by the inline .topbar-stats line. */
 
+/* ============================================================
+   Multi-page IA primitives (Phase 13)
+   ============================================================ */
+
+/* Topbar right slot — for actions / stats placed alongside the title. */
+.topbar-right { display: flex; align-items: center; gap: var(--space-3); }
+
+/* Section head + link */
+.section-link {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.section-link:hover { color: var(--accent); text-decoration: underline; }
+
+/* Pipeline flow — Overview's signature visual */
+.pipeline-flow {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.pipeline-stage-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 180px;
+}
+.pipeline-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  flex: 1;
+  min-width: 0;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.pipeline-stage:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-subtle);
+  text-decoration: none;
+}
+.pipeline-stage-alert { border-color: var(--warning-border); }
+.pipeline-stage-alert:hover { background: var(--warning-soft); }
+.pipeline-stage-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+.pipeline-stage-value {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  line-height: 1.1;
+}
+.pipeline-stage-sub { font-size: 11px; color: var(--text-muted); }
+.pipeline-arrow {
+  font-size: 16px;
+  color: var(--text-subtle);
+  user-select: none;
+}
+@media (max-width: 880px) {
+  .pipeline-arrow { display: none; }
+}
+
+/* Filter chip strip (Opportunities campaign filter) */
+.filter-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.filter-chip:hover {
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+.filter-chip-active {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--surface);
+}
+.filter-chip-active:hover { background: var(--text); color: var(--surface); }
+.filter-chip-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  opacity: 0.7;
+}
+.filter-chip-active .filter-chip-count { opacity: 0.85; }
+
+/* Campaign card as a link — used on the Campaigns page */
+.campaign-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.campaign-card-link:hover {
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+.campaign-card-stats {
+  margin-top: var(--space-2);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* StatStrip tone tokens — colour the value when the metric is alarming */
+.discovery-stat-value[data-tone='warning'] { color: var(--warning); }
+.discovery-stat-value[data-tone='danger']  { color: var(--danger); }
+.discovery-stat-value[data-tone='success'] { color: var(--success); }
+.discovery-stat-value[data-tone='accent']  { color: var(--accent); }
+
 /* Discovery throughput strip — sits inside the collapsed Discovery section. */
 .discovery-strip {
   display: grid;
