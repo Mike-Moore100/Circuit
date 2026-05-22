@@ -15,7 +15,12 @@ import { config } from '../../../../src/config/index';
 
 export const dynamic = 'force-dynamic';
 
-const TEST_COMPANY_NUMBER = '00000006';
+// The /search/companies endpoint is the canonical "ping" for auth
+// testing — it returns 200 with an items array regardless of whether
+// any company matches (so it works against both the live API and the
+// sandbox, which has different fixture data). A single-result limit
+// keeps the response tiny.
+const TEST_QUERY = 'test';
 
 export type ConnectionTestState =
   | 'connected'
@@ -87,12 +92,13 @@ export async function POST() {
     // the key. We log only: key presence, length, auth header prefix
     // (proves the Basic scheme), and the HTTP status we get back.
     // No key value, no full auth header, no body content.
+    const endpointPath = `/search/companies?q=${encodeURIComponent(TEST_QUERY)}&items_per_page=1`;
     console.log(
-      `[ch-test] key_present=${apiKey.length > 0} key_length=${apiKey.length} auth_prefix=${authHeader.slice(0, 6)} endpoint=/company/${TEST_COMPANY_NUMBER}`,
+      `[ch-test] key_present=${apiKey.length > 0} key_length=${apiKey.length} auth_prefix=${authHeader.slice(0, 6)} endpoint=${endpointPath}`,
     );
 
     const res = await fetch(
-      `${config.companiesHouse.baseUrl}/company/${TEST_COMPANY_NUMBER}`,
+      `${config.companiesHouse.baseUrl}${endpointPath}`,
       {
         signal: controller.signal,
         headers: {
@@ -110,11 +116,14 @@ export async function POST() {
     );
 
     if (res.status === 200) {
+      const isSandbox = /api-sandbox\.company-information/i.test(
+        config.companiesHouse.baseUrl,
+      );
       return NextResponse.json(
         {
           state: 'connected',
           httpStatus: 200,
-          message: `Connected. Fetched /company/${TEST_COMPANY_NUMBER} (${responseBytes} bytes).`,
+          message: `Connected. ${isSandbox ? 'Sandbox' : 'Live'} API responded in ${durationMs}ms (${responseBytes} bytes).`,
           responseBytes,
           durationMs,
         } satisfies ConnectionTestResult,
