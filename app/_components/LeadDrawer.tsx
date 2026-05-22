@@ -559,7 +559,10 @@ export function LeadDrawer({
           </section>
         )}
 
-        <RegistryEnrichment enrichment={registryEnrichment} />
+        <RegistryEnrichment
+          companyId={lead.companyId}
+          enrichment={registryEnrichment}
+        />
 
         <section className="drawer-section">
           <h3 className="drawer-label">Outcome tracking</h3>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Sidebar } from './_components/Sidebar';
+import { SystemStatusBanners } from './_components/SystemStatusBanners';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -13,7 +14,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="app">
           <Sidebar />
-          <main className="app-main">{children}</main>
+          <main className="app-main">
+            <SystemStatusBanners />
+            {children}
+          </main>
         </div>
       </body>
     </html>
